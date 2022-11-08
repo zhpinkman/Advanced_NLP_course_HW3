@@ -45,21 +45,17 @@ class Sentence:
         """ determines if sentence is projective when ground truth given """
         pass
 
-
     def get_trans(self):  # this function is only used for the ground truth
         """ decide transition operation from [shift, left_arc, or right_arc] """
         pass
 
-
     def check_trans(self, potential_trans):
         """ checks if transition can legally be performed"""
         pass
-    
-    
+
     def update_state(self, curr_trans, predicted_dep=None):
         """ updates the sentence according to the given transition (may or may not assume legality, you implement) """
         pass
-
 
 
 class FeatureGenerator:
