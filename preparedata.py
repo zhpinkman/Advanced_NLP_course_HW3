@@ -1,7 +1,7 @@
 from IPython import embed
 from typing import List, Tuple, Dict
 from collections import defaultdict
-import networkx as nx
+# import networkx as nx
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 import os
@@ -51,28 +51,28 @@ class Sentence:
                     return False
         return True
 
-    def get_graph(self):
-        G = nx.DiGraph()
-        for token in self.tokens.values():
-            G.add_node(token.token_id, word=token.word, pos_tag=token.pos)
+    # def get_graph(self):
+    #     G = nx.DiGraph()
+    #     for token in self.tokens.values():
+    #         G.add_node(token.token_id, word=token.word, pos_tag=token.pos)
 
-        for token in self.tokens.values():
-            G.add_edge(token.parent, token.token_id, label=token.label)
-        return G
+    #     for token in self.tokens.values():
+    #         G.add_edge(token.parent, token.token_id, label=token.label)
+    #     return G
 
-    def draw_graph(self):
-        fig = plt.figure(figsize=(20, 20))
-        if os.path.exists('graph.png'):
-            os.remove('graph.png')
+    # def draw_graph(self):
+    #     fig = plt.figure(figsize=(20, 20))
+    #     if os.path.exists('graph.png'):
+    #         os.remove('graph.png')
 
-        G = self.get_graph()
-        pos = nx.nx_agraph.graphviz_layout(G)
-        nx.draw(G, pos, labels={token_id: f"{token_id} - {token.word}" for token_id,
-                token in self.tokens.items()}, with_labels=True)
+    #     G = self.get_graph()
+    #     pos = nx.nx_agraph.graphviz_layout(G)
+    #     nx.draw(G, pos, labels={token_id: f"{token_id} - {token.word}" for token_id,
+    #             token in self.tokens.items()}, with_labels=True)
 
-        nx.draw_networkx_edge_labels(
-            G, pos, edge_labels=nx.get_edge_attributes(G, 'label'))
-        plt.savefig('graph.png')
+    #     nx.draw_networkx_edge_labels(
+    #         G, pos, edge_labels=nx.get_edge_attributes(G, 'label'))
+    #     plt.savefig('graph.png')
 
     def __process(self):
         self.node_edges = defaultdict(list)
@@ -87,38 +87,62 @@ class Sentence:
             return []
         return self.node_edges[index]
 
-    def get_left_most_child(self, index):
+    def get_left_most_child(self, index, output):
         if len(self.node_edges[index]) == 0:
             return 'None'
-        return self.node_edges[index][0]
+        token = self.node_edges[index][0]
+        if output == 'word':
+            return token.word
+        elif output == 'pos':
+            return token.pos
+        elif output == 'label':
+            return token.label
 
-    def get_second_left_most_child(self, index):
+    def get_second_left_most_child(self, index, output):
         if len(self.node_edges[index]) < 2:
             return 'None'
-        return self.node_edges[index][1]
+        token = self.node_edges[index][1]
+        if output == 'word':
+            return token.word
+        elif output == 'pos':
+            return token.pos
+        elif output == 'label':
+            return token.label
 
-    def get_right_most_child(self, index):
+    def get_right_most_child(self, index, output):
         if len(self.node_edges[index]) == 0:
             return 'None'
-        return self.node_edges[index][-1]
+        token = self.node_edges[index][-1]
+        if output == 'word':
+            return token.word
+        elif output == 'pos':
+            return token.pos
+        elif output == 'label':
+            return token.label
 
-    def get_second_right_most_child(self, index):
+    def get_second_right_most_child(self, index, output):
         if len(self.node_edges[index]) < 2:
             return 'None'
-        return self.node_edges[index][-2]
+        token = self.node_edges[index][-2]
+        if output == 'word':
+            return token.word
+        elif output == 'pos':
+            return token.pos
+        elif output == 'label':
+            return token.label
 
-    def get_left_most_child_left_most_child(self, index):
+    def get_left_most_child_left_most_child(self, index, output):
         if len(self.node_edges[index]) == 0:
             return 'None'
         return self.get_left_most_child(
-            self.node_edges[index][0].token_id
+            self.node_edges[index][0].token_id, output
         )
 
-    def get_right_most_child_right_most_child(self, index):
+    def get_right_most_child_right_most_child(self, index, output):
         if len(self.node_edges[index]) == 0:
             return 'None'
         return self.get_right_most_child(
-            self.node_edges[index][-1].token_id
+            self.node_edges[index][-1].token_id, output
         )
 
 
@@ -143,20 +167,20 @@ class Configuration:
         for length in range(1, 3):
             if len(self.stack) >= length:
                 labels.append(self.sentence.get_left_most_child(
-                    self.stack[-length]).label)
+                    self.stack[-length], "label"))
                 labels.append(self.sentence.get_second_left_most_child(
-                    self.stack[-length]).label)
+                    self.stack[-length], "label"))
                 labels.append(self.sentence.get_right_most_child(
-                    self.stack[-length]).label)
+                    self.stack[-length], "label"))
                 labels.append(self.sentence.get_second_right_most_child(
-                    self.stack[-length]).label)
+                    self.stack[-length], "label"))
 
         for length in range(1, 3):
             if len(self.stack) >= length:
                 labels.append(self.sentence.get_left_most_child_left_most_child(
-                    self.stack[-length]).label)
+                    self.stack[-length], "label"))
                 labels.append(self.sentence.get_right_most_child_right_most_child(
-                    self.stack[-length]).label)
+                    self.stack[-length], "label"))
 
         return labels
 
@@ -178,20 +202,20 @@ class Configuration:
         for length in range(1, 3):
             if len(self.stack) >= length:
                 poss.append(self.sentence.get_left_most_child(
-                    self.stack[-length]).pos)
+                    self.stack[-length], "pos"))
                 poss.append(self.sentence.get_second_left_most_child(
-                    self.stack[-length]).pos)
+                    self.stack[-length], "pos"))
                 poss.append(self.sentence.get_right_most_child(
-                    self.stack[-length]).pos)
+                    self.stack[-length], "pos"))
                 poss.append(self.sentence.get_second_right_most_child(
-                    self.stack[-length]).pos)
+                    self.stack[-length], "pos"))
 
         for length in range(1, 3):
             if len(self.stack) >= length:
                 poss.append(self.sentence.get_left_most_child_left_most_child(
-                    self.stack[-length]).pos)
+                    self.stack[-length], "pos"))
                 poss.append(self.sentence.get_right_most_child_right_most_child(
-                    self.stack[-length]).pos)
+                    self.stack[-length], "pos"))
 
         return poss
 
@@ -213,20 +237,20 @@ class Configuration:
         for length in range(1, 3):
             if len(self.stack) >= length:
                 words.append(self.sentence.get_left_most_child(
-                    self.stack[-length]).word)
+                    self.stack[-length], "word"))
                 words.append(self.sentence.get_second_left_most_child(
-                    self.stack[-length]).word)
+                    self.stack[-length], "word"))
                 words.append(self.sentence.get_right_most_child(
-                    self.stack[-length]).word)
+                    self.stack[-length], "word"))
                 words.append(self.sentence.get_second_right_most_child(
-                    self.stack[-length]).word)
+                    self.stack[-length], "word"))
 
         for length in range(1, 3):
             if len(self.stack) >= length:
                 words.append(self.sentence.get_left_most_child_left_most_child(
-                    self.stack[-length]).word)
+                    self.stack[-length], "word"))
                 words.append(self.sentence.get_right_most_child_right_most_child(
-                    self.stack[-length]).word)
+                    self.stack[-length], "word"))
 
         return words
 
@@ -277,10 +301,10 @@ class Configuration:
 
         if self.stack[-1] in [token.token_id for token in self.sentence.get_children(self.stack[-2])] and \
             all(
-                [
-                    token_id in self.all_processed
-                    for token_id in [token.token_id for token in self.sentence.get_children(self.stack[-1])]
-                ]
+            [
+                token_id in self.all_processed
+                for token_id in [token.token_id for token in self.sentence.get_children(self.stack[-1])]
+            ]
         ):
             return self.__right_arc()
         else:
