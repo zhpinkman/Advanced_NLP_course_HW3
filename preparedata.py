@@ -3,7 +3,10 @@ from typing import List, Tuple, Dict
 from collections import defaultdict
 import networkx as nx
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 import os
+import copy
+import joblib
 
 
 class Token:
@@ -30,15 +33,31 @@ class Sentence:
         self.tokens = tokens
         self.__process()
 
+    def get_child_parent_spans(self):
+        spans = []
+        for token in self.tokens.values():
+            spans.append((token.token_id, token.parent))
+        return spans
+
+    def is_projective(self):
+        spans = self.get_child_parent_spans()
+        for i in range(len(spans)):
+            for j in range(i+1, len(spans)):
+                min_i, max_i = min(spans[i]), max(spans[i])
+                min_j, max_j = min(spans[j]), max(spans[j])
+                if min_i < min_j and max_i < max_j and max_i > min_j:
+                    return False
+                if min_i > min_j and max_i > max_j and min_i < max_j:
+                    return False
+        return True
+
     def get_graph(self):
         G = nx.DiGraph()
         for token in self.tokens.values():
             G.add_node(token.token_id, word=token.word, pos_tag=token.pos)
+
         for token in self.tokens.values():
-            if token.parent == 0:
-                G.add_edge('root', token.token_id, label=token.label)
-            else:
-                G.add_edge(token.parent, token.token_id, label=token.label)
+            G.add_edge(token.parent, token.token_id, label=token.label)
         return G
 
     def draw_graph(self):
@@ -65,32 +84,238 @@ class Sentence:
 
     def get_children(self, index):
         if len(self.node_edges[index]) == 0:
-            return None
+            return []
         return self.node_edges[index]
 
     def get_left_most_child(self, index):
         if len(self.node_edges[index]) == 0:
-            return None
+            return 'None'
         return self.node_edges[index][0]
+
+    def get_second_left_most_child(self, index):
+        if len(self.node_edges[index]) < 2:
+            return 'None'
+        return self.node_edges[index][1]
 
     def get_right_most_child(self, index):
         if len(self.node_edges[index]) == 0:
-            return None
+            return 'None'
         return self.node_edges[index][-1]
+
+    def get_second_right_most_child(self, index):
+        if len(self.node_edges[index]) < 2:
+            return 'None'
+        return self.node_edges[index][-2]
 
     def get_left_most_child_left_most_child(self, index):
         if len(self.node_edges[index]) == 0:
-            return None
+            return 'None'
         return self.get_left_most_child(
             self.node_edges[index][0].token_id
         )
 
     def get_right_most_child_right_most_child(self, index):
         if len(self.node_edges[index]) == 0:
-            return None
+            return 'None'
         return self.get_right_most_child(
             self.node_edges[index][-1].token_id
         )
+
+
+class Configuration:
+    def __init__(self, sentence: Sentence) -> None:
+        self.sentence = sentence
+        self.stack = [0]
+        self.buffer = [
+            token_id for token_id in sentence.tokens.keys() if token_id != 0]
+        self.all_processed = []
+
+    def get_all_features(self):
+        all_features = []
+        all_features.extend(self.get_word_features())
+        all_features.extend(self.get_pos_features())
+        all_features.extend(self.get_label_features())
+        return all_features
+
+    def get_label_features(self):
+        labels = []
+
+        for length in range(1, 3):
+            if len(self.stack) >= length:
+                labels.append(self.sentence.get_left_most_child(
+                    self.stack[-length]).label)
+                labels.append(self.sentence.get_second_left_most_child(
+                    self.stack[-length]).label)
+                labels.append(self.sentence.get_right_most_child(
+                    self.stack[-length]).label)
+                labels.append(self.sentence.get_second_right_most_child(
+                    self.stack[-length]).label)
+
+        for length in range(1, 3):
+            if len(self.stack) >= length:
+                labels.append(self.sentence.get_left_most_child_left_most_child(
+                    self.stack[-length]).label)
+                labels.append(self.sentence.get_right_most_child_right_most_child(
+                    self.stack[-length]).label)
+
+        return labels
+
+    def get_pos_features(self):
+        poss = []
+
+        for length in range(1, 4):
+            if len(self.stack) >= length:
+                poss.append(self.sentence[self.stack[-length]].pos)
+            else:
+                poss.append('None')
+
+        for length in range(1, 4):
+            if len(self.buffer) >= length:
+                poss.append(self.sentence[self.buffer[length - 1]].pos)
+            else:
+                poss.append('None')
+
+        for length in range(1, 3):
+            if len(self.stack) >= length:
+                poss.append(self.sentence.get_left_most_child(
+                    self.stack[-length]).pos)
+                poss.append(self.sentence.get_second_left_most_child(
+                    self.stack[-length]).pos)
+                poss.append(self.sentence.get_right_most_child(
+                    self.stack[-length]).pos)
+                poss.append(self.sentence.get_second_right_most_child(
+                    self.stack[-length]).pos)
+
+        for length in range(1, 3):
+            if len(self.stack) >= length:
+                poss.append(self.sentence.get_left_most_child_left_most_child(
+                    self.stack[-length]).pos)
+                poss.append(self.sentence.get_right_most_child_right_most_child(
+                    self.stack[-length]).pos)
+
+        return poss
+
+    def get_word_features(self):
+        words = []
+
+        for length in range(1, 4):
+            if len(self.stack) >= length:
+                words.append(self.sentence[self.stack[-length]].word)
+            else:
+                words.append('None')
+
+        for length in range(1, 4):
+            if len(self.buffer) >= length:
+                words.append(self.sentence[self.buffer[length - 1]].word)
+            else:
+                words.append('None')
+
+        for length in range(1, 3):
+            if len(self.stack) >= length:
+                words.append(self.sentence.get_left_most_child(
+                    self.stack[-length]).word)
+                words.append(self.sentence.get_second_left_most_child(
+                    self.stack[-length]).word)
+                words.append(self.sentence.get_right_most_child(
+                    self.stack[-length]).word)
+                words.append(self.sentence.get_second_right_most_child(
+                    self.stack[-length]).word)
+
+        for length in range(1, 3):
+            if len(self.stack) >= length:
+                words.append(self.sentence.get_left_most_child_left_most_child(
+                    self.stack[-length]).word)
+                words.append(self.sentence.get_right_most_child_right_most_child(
+                    self.stack[-length]).word)
+
+        return words
+
+    def __repr__(self) -> str:
+        return f"Stack: {[self.sentence[token_id].word for token_id in self.stack]}, Buffer: {[self.sentence[token_id].word for token_id in self.buffer]}"
+
+    def is_finished(self) -> bool:
+        return len(self.buffer) == 0 and len(self.stack) == 1 and self.stack[0] == 0
+
+    def __shift(self):
+        past_configuration = copy.deepcopy(self)
+        self.all_processed.append(self.buffer[0])
+        self.stack.append(self.buffer.pop(0))
+        return {
+            'configuration': past_configuration,
+            'action': 'shift',
+            'new_configuration': self
+        }
+
+    def __left_arc(self):
+        past_configuration = copy.deepcopy(self)
+        label = self.sentence[self.stack[-2]].label
+        self.stack.pop(-2)
+        return {
+            'configuration': past_configuration,
+            'action': 'left_arc' + label,
+            'new_configuration': self
+        }
+
+    def __right_arc(self):
+        past_configuration = copy.deepcopy(self)
+        label = self.sentence[self.stack[-1]].label
+        self.stack.pop(-1)
+        return {
+            'configuration': past_configuration,
+            'action': 'right_arc' + label,
+            'new_configuration': self
+        }
+
+    def get_next_configuration(self):
+        if self.is_finished():
+            return None
+        if len(self.stack) == 1:
+            return self.__shift()
+
+        if self.stack[-2] in [token.token_id for token in self.sentence.get_children(self.stack[-1])]:
+            return self.__left_arc()
+
+        if self.stack[-1] in [token.token_id for token in self.sentence.get_children(self.stack[-2])] and \
+            all(
+                [
+                    token_id in self.all_processed
+                    for token_id in [token.token_id for token in self.sentence.get_children(self.stack[-1])]
+                ]
+        ):
+            return self.__right_arc()
+        else:
+            return self.__shift()
+
+
+class Oracle:
+    def __init__(self, sentences=List[Sentence]) -> None:
+        self.sentences = sentences
+        self.all_configurations = []
+        self.all_labels = []
+        print("Generating oracle...")
+        count = 0
+        for sentence in tqdm(self.sentences, leave=False):
+            try:
+                configurations, labels = self.get_configurations(sentence)
+                self.all_configurations.append(configurations)
+                self.all_labels.append(labels)
+            except:
+                print(count)
+                count += 1
+        print('Total sentences with errors: ', count)
+        print('Total sentences: ', len(self.sentences))
+
+    def get_configurations(self, sentence):
+        configurations = []
+        actions = []
+
+        configuration = Configuration(sentence)
+        while not configuration.is_finished():
+            configuration_dict = configuration.get_next_configuration()
+            configuration = configuration_dict['new_configuration']
+            configurations.append(configuration_dict['configuration'])
+            actions.append(configuration_dict['action'])
+        return configurations, actions
 
 
 def read_sentences(file: str):
@@ -99,11 +324,13 @@ def read_sentences(file: str):
     sentences_tokens = []
 
     tokens = dict()
+    tokens[0] = Token(0, 'ROOT', 'ROOT', 'ROOT', -1)
     for line in lines:
         if line == '':
             if len(tokens) > 0:
                 sentences_tokens.append(tokens)
             tokens = dict()
+            tokens[0] = Token(0, 'ROOT', 'ROOT', 'ROOT', -1)
             continue
 
         token = line.split('\t')
@@ -123,6 +350,31 @@ if __name__ == "__main__":
 
     sentences_tokens = read_sentences('train.orig.conll')
     sentences = [Sentence(tokens) for tokens in sentences_tokens]
-    sentences[0].draw_graph()
+    print('number of sentences: ', len(sentences))
+    sentences = [
+        sentence for sentence in tqdm(sentences, leave=False) if sentence.is_projective()]
+    print('number of projective sentences: ', len(sentences))
+
+    parts = [(i, min(i + 5000, len(sentences)))
+             for i in range(0, len(sentences), 5000)]
+    print(parts)
+
+    for part in tqdm(parts, leave=False):
+        # if os.path.exists(f'cache/oracle_{part[0]}_{part[1]}.joblib'):
+        #     oracle = joblib.load(f'cache/oracle_{part[0]}_{part[1]}.joblib')
+        #     print(f'Loaded oracle_{part[0]}_{part[1]}.joblib')
+        # else:
+        oracle = Oracle(
+            sentences=sentences[part[0]:part[1]]
+        )
+        # joblib.dump(oracle, f'cache/oracle_{part[0]}_{part[1]}.joblib')
+
+        with open('oracle.txt', 'a') as f:
+            for sentence_configurations, sentence_labels in tqdm(zip(oracle.all_configurations, oracle.all_labels), leave=False):
+                for configuration, label in zip(sentence_configurations, sentence_labels):
+                    configuration_features = configuration.get_all_features()
+                    output = '\t'.join([*configuration_features, label])
+                    f.write(output + '\n')
+
     embed()
     exit()
