@@ -1,0 +1,36 @@
+/cluster/raid/home/zhivar.sourati/dep_parsing/dependency-parsing
+No devices were found
+
+number of sentences:  39832
+number of projective sentences:  39712
+[(0, 5000), (5000, 10000), (10000, 15000), (15000, 20000), (20000, 25000), (25000, 30000), (30000, 35000), (35000, 39712)]
+Generating oracle...
+Total sentences with errors:  0
+Total sentences:  5000
+Generating oracle...
+Total sentences with errors:  0
+Total sentences:  5000
+Generating oracle...
+Total sentences with errors:  0
+Total sentences:  5000
+Generating oracle...
+Total sentences with errors:  0
+Total sentences:  5000
+Generating oracle...
+Total sentences with errors:  0
+Total sentences:  5000
+Generating oracle...
+Total sentences with errors:  0
+Total sentences:  5000
+Generating oracle...
+Total sentences with errors:  0
+Total sentences:  5000
+Generating oracle...
+Total sentences with errors:  0
+Total sentences:  4712
+Python 3.10.4 (main, Mar 31 2022, 08:41:55) [GCC 7.5.0]
+Type 'copyright', 'credits' or 'license' for more information
+IPython 8.4.0 -- An enhanced Interactive Python. Type '?' for help.
+
+In [1]: Do you really want to exit ([y]/n)? 
+

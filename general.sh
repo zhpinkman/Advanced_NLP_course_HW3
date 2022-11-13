@@ -6,7 +6,6 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=10240
 #SBATCH --partition=nodes
-#SBATCH --gres=gpu:a100:1
 #SBATCH --chdir=/cluster/raid/home/zhivar.sourati/dep_parsing/dependency-parsing
 # Verify working directory
 echo $(pwd)
@@ -21,5 +20,6 @@ conda activate general
 
 
 python preparedata.py
+# # SBATCH --gres=gpu:a100:1
 
 conda deactivate
