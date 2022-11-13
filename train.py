@@ -9,6 +9,7 @@ from tqdm import tqdm
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
 from sklearn.utils.class_weight import compute_class_weight
+torch.manual_seed(78)
 
 
 def get_features_labels(file_name: str):
@@ -41,6 +42,28 @@ def get_all_unique_poss(features):
     unique_poss = np.unique(poss_features)
     joblib.dump(unique_poss, file_name)
     return unique_poss
+
+
+def get_all_unique_target_labels(features):
+    file_name = 'unique_target_labels.joblib'
+    if os.path.exists(file_name):
+        print('Loading unique target labels from file')
+        unique_target_labels = joblib.load(file_name)
+        return unique_target_labels
+    prefixes = ["right_arc", "left_arc"]
+    all_labels_without_prefix = set()
+    for label in features:
+        for prefix in prefixes:
+            if label.startswith(prefix):
+                all_labels_without_prefix.add(label[len(prefix):])
+
+    final_results = []
+    final_results.append("shift")
+    for label in all_labels_without_prefix:
+        for prefix in prefixes:
+            final_results.append(prefix + label)
+    joblib.dump(final_results, file_name)
+    return final_results
 
 
 def get_all_unique_words(features):
@@ -222,34 +245,49 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    features, labels = get_features_labels(args.train)
+    train_features, train_labels = get_features_labels(args.train)
+    dev_features, dev_labels = get_features_labels(args.dev)
+
+    # train_features = train_features[:20000, :]
+    # train_labels = train_labels[:20000]
 
     word_embedding, word2id = create_word_embedding_matrix(
-        vocab=get_all_unique_words(features)
+        vocab=get_all_unique_words(train_features)
     )
     print('loaded word embedding')
     pos_embedding, pos2id = create_random_embedding_matrix(
-        vocab=get_all_unique_poss(features)
+        vocab=get_all_unique_poss(train_features)
     )
     print('loaded pos embedding')
     label_embedding, label2id = create_random_embedding_matrix(
-        vocab=get_all_unique_labels(features)
+        vocab=get_all_unique_labels(train_features)
     )
     print('loaded label embedding')
 
-    tokenizer = Tokenizer(word2id, pos2id, label2id)
-    tokenized_features = tokenizer.tokenize_batch(features)
-
     label_encoder = LabelEncoder()
-    label_encoder.fit(labels)
+    all_unique_labels = get_all_unique_target_labels(train_labels)
+    label_encoder.fit(all_unique_labels)
 
-    tokenized_labels = label_encoder.transform(labels)
+    tokenized_train_labels = label_encoder.transform(train_labels)
+    tokenized_dev_labels = label_encoder.transform(dev_labels)
+
+    tokenizer = Tokenizer(word2id, pos2id, label2id)
+    tokenized_train_features = tokenizer.tokenize_batch(train_features)
+    tokenized_dev_features = tokenizer.tokenize_batch(dev_features)
 
     train_dataset = torch.utils.data.TensorDataset(
-        torch.tensor(tokenized_features), torch.tensor(tokenized_labels))
+        torch.tensor(tokenized_train_features), torch.tensor(tokenized_train_labels))
+
+    dev_dataset = torch.utils.data.TensorDataset(
+        torch.tensor(tokenized_dev_features), torch.tensor(tokenized_dev_labels))
 
     train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=16, shuffle=True)
+        train_dataset, batch_size=16, shuffle=True
+    )
+
+    dev_dataloader = torch.utils.data.DataLoader(
+        dev_dataset, batch_size=16, shuffle=False
+    )
 
     model = DependencyParser(
         word_embedding=word_embedding,
@@ -260,20 +298,20 @@ if __name__ == "__main__":
         num_labels=len(label_encoder.classes_)
     )
 
-    class_weights = compute_class_weight(
-        class_weight='balanced',
-        classes=np.unique(tokenized_labels),
-        y=tokenized_labels
-    )
+    # class_weights = compute_class_weight(
+    #     class_weight='balanced',
+    #     classes=np.unique(tokenized_labels),
+    #     y=tokenized_labels
+    # )
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    criterion = torch.nn.CrossEntropyLoss(
-        weight=torch.tensor(class_weights).float())
-
+    criterion = torch.nn.CrossEntropyLoss()
+# weight=torch.tensor(class_weights).float()
     criterion = criterion.to(device)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
+    optimizer = torch.optim.Adagrad(
+        model.parameters(), lr=0.001, weight_decay=0.0001)
 
     model = model.to(device)
 

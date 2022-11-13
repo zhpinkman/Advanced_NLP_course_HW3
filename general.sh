@@ -4,7 +4,7 @@
 #SBATCH --error=%x-%j.err
 #SBATCH --time=3-00:00:00
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=10240
+#SBATCH --mem=8240
 #SBATCH --partition=nodes
 #SBATCH --gres=gpu:a100:1
 #SBATCH --chdir=/cluster/raid/home/zhivar.sourati/dep_parsing/dependency-parsing

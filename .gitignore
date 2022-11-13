@@ -1,5 +1,3 @@
-*.joblib
-*.conll
 train.oracle.txt
 dev.oracle.txt
 glove.6B.100d.txt
