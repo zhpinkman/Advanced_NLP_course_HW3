@@ -149,117 +149,35 @@ class Configuration:
         self.all_processed = []
 
     def get_all_features(self):
-        all_features = []
-        all_features.extend(self.get_word_features())
-        assert len(all_features) == 18
-        all_features.extend(self.get_pos_features())
-        assert len(all_features) == 36
-        all_features.extend(self.get_label_features())
-        assert len(all_features) == 48
+        word_features, pos_features, label_features = self.get_features()
+        assert len(word_features) == 18
+        assert len(pos_features) == 18
+        assert len(label_features) == 12
+
+        all_features = word_features + pos_features + label_features
+
         return all_features
 
-    def get_label_features(self):
-        labels = []
-
-        for length in range(1, 3):
-            if len(self.stack) >= length:
-                for func in [
-                    self.sentence.get_left_most_child,
-                    self.sentence.get_second_left_most_child,
-                    self.sentence.get_right_most_child,
-                    self.sentence.get_second_right_most_child
-                ]:
-                    fetched_node = func(self.stack[-length])
-                    if fetched_node == 'None':
-                        labels.append('None')
-                    else:
-                        labels.append(fetched_node.label)
-
-            else:
-                for _ in range(4):
-                    labels.append('None')
-
-        for length in range(1, 3):
-            if len(self.stack) >= length:
-                for func in [
-                    self.sentence.get_left_most_child_left_most_child,
-                    self.sentence.get_right_most_child_right_most_child
-                ]:
-                    fetched_node = func(self.stack[-length])
-                    if fetched_node == 'None':
-                        labels.append('None')
-                    else:
-                        labels.append(fetched_node.label)
-            else:
-                for _ in range(2):
-                    labels.append('None')
-
-        return labels
-
-    def get_pos_features(self):
-        poss = []
-
-        for length in range(1, 4):
-            if len(self.stack) >= length:
-                poss.append(self.sentence[self.stack[-length]].pos)
-            else:
-                poss.append('None')
-
-        for length in range(1, 4):
-            if len(self.buffer) >= length:
-                poss.append(self.sentence[self.buffer[length - 1]].pos)
-            else:
-                poss.append('None')
-
-        for length in range(1, 3):
-            if len(self.stack) >= length:
-                for func in [
-                    self.sentence.get_left_most_child,
-                    self.sentence.get_second_left_most_child,
-                    self.sentence.get_right_most_child,
-                    self.sentence.get_second_right_most_child
-                ]:
-                    fetched_node = func(self.stack[-length])
-                    if fetched_node == 'None':
-                        poss.append('None')
-                    else:
-                        poss.append(fetched_node.pos)
-
-            else:
-                for _ in range(4):
-                    poss.append('None')
-
-        for length in range(1, 3):
-            if len(self.stack) >= length:
-                for func in [
-                    self.sentence.get_left_most_child_left_most_child,
-                    self.sentence.get_right_most_child_right_most_child
-                ]:
-                    fetched_node = func(self.stack[-length])
-                    if fetched_node == 'None':
-                        poss.append('None')
-                    else:
-                        poss.append(fetched_node.pos)
-            else:
-                for _ in range(2):
-                    poss.append('None')
-
-        return poss
-
-    def get_word_features(self):
+    def get_features(self):
         words = []
+        poss = []
+        labels = []
 
         for length in range(1, 4):
             if len(self.stack) >= length:
                 words.append(self.sentence[self.stack[-length]].word)
+                poss.append(self.sentence[self.stack[-length]].pos)
             else:
                 words.append('None')
+                poss.append('None')
 
         for length in range(1, 4):
             if len(self.buffer) >= length:
                 words.append(self.sentence[self.buffer[length - 1]].word)
+                poss.append(self.sentence[self.buffer[length - 1]].pos)
             else:
                 words.append('None')
+                poss.append('None')
 
         for length in range(1, 3):
             if len(self.stack) >= length:
@@ -272,12 +190,18 @@ class Configuration:
                     fetched_node = func(self.stack[-length])
                     if fetched_node == 'None':
                         words.append('None')
+                        poss.append('None')
+                        labels.append('None')
                     else:
                         words.append(fetched_node.word)
+                        poss.append(fetched_node.pos)
+                        labels.append(fetched_node.label)
 
             else:
                 for _ in range(4):
                     words.append('None')
+                    poss.append('None')
+                    labels.append('None')
 
         for length in range(1, 3):
             if len(self.stack) >= length:
@@ -288,13 +212,19 @@ class Configuration:
                     fetched_node = func(self.stack[-length])
                     if fetched_node == 'None':
                         words.append('None')
+                        poss.append('None')
+                        labels.append('None')
                     else:
                         words.append(fetched_node.word)
+                        poss.append(fetched_node.pos)
+                        labels.append(fetched_node.label)
             else:
                 for _ in range(2):
                     words.append('None')
+                    poss.append('None')
+                    labels.append('None')
 
-        return words
+        return words, poss, labels
 
     def __repr__(self) -> str:
         return f"Stack: {[self.sentence[token_id].word for token_id in self.stack]}, Buffer: {[self.sentence[token_id].word for token_id in self.buffer]}"
@@ -343,10 +273,10 @@ class Configuration:
 
         if self.stack[-1] in [token.token_id for token in self.sentence.get_children(self.stack[-2])] and \
             all(
-                [
-                    token_id in self.all_processed
-                    for token_id in [token.token_id for token in self.sentence.get_children(self.stack[-1])]
-                ]
+            [
+                token_id in self.all_processed
+                for token_id in [token.token_id for token in self.sentence.get_children(self.stack[-1])]
+            ]
         ):
             return self.__right_arc()
         else:
@@ -382,8 +312,6 @@ class Oracle:
             configuration = configuration_dict['new_configuration']
             configurations.append(configuration_dict['configuration'])
             actions.append(configuration_dict['action'])
-            print(configuration_dict['configuration'])
-            print(configuration_dict['action'])
         return configurations, actions
 
 
@@ -416,8 +344,9 @@ def read_sentences(file: str):
 
 
 if __name__ == "__main__":
-
     mode = 'dev'
+    if os.path.exists(f'{mode}.oracle.txt'):
+        os.remove(f'{mode}.oracle.txt')
 
     sentences_tokens = read_sentences(f'{mode}.orig.conll')
     sentences = [Sentence(tokens) for tokens in sentences_tokens]
@@ -431,14 +360,9 @@ if __name__ == "__main__":
     print(parts)
 
     for part in tqdm(parts, leave=False):
-        # if os.path.exists(f'cache/oracle_{part[0]}_{part[1]}.joblib'):
-        #     oracle = joblib.load(f'cache/oracle_{part[0]}_{part[1]}.joblib')
-        #     print(f'Loaded oracle_{part[0]}_{part[1]}.joblib')
-        # else:
         oracle = Oracle(
             sentences=sentences[part[0]:part[1]]
         )
-        # joblib.dump(oracle, f'cache/oracle_{part[0]}_{part[1]}.joblib')
 
         with open(f'{mode}.oracle.txt', 'a') as f:
             for sentence_configurations, sentence_labels in tqdm(zip(oracle.all_configurations, oracle.all_labels), leave=False):
