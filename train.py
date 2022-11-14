@@ -8,8 +8,41 @@ import joblib
 from tqdm import tqdm
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-from sklearn.utils.class_weight import compute_class_weight
+from preparedata import Configuration, Sentence
 torch.manual_seed(78)
+
+class Tokenizer:
+    def __init__(self, word2id, pos2id, label2id):
+        self.word2id = word2id
+        self.pos2id = pos2id
+        self.label2id = label2id
+
+    def tokenize_batch(self, features):
+        all_features = []
+        for sub_feature in features:
+            sub_feature_tokenized = self.tokenize(sub_feature)
+            all_features.append(sub_feature_tokenized)
+        return np.array(all_features)
+
+    def tokenize(self, features):
+        results = []
+        for word_feature in features[:18]:
+            if word_feature in self.word2id:
+                results.append(self.word2id[word_feature])
+            else:
+                results.append(self.word2id['<UNK>'])
+        for pos_feature in features[18:36]:
+            if pos_feature in self.pos2id:
+                results.append(self.pos2id[pos_feature])
+            else:
+                results.append(self.pos2id['<UNK>'])
+
+        for label_feature in features[36:]:
+            if label_feature in self.label2id:
+                results.append(self.label2id[label_feature])
+            else:
+                results.append(self.label2id['<UNK>'])
+        return results
 
 
 def get_features_labels(file_name: str):
@@ -164,7 +197,21 @@ class DependencyParser(torch.nn.Module):
         x = self.f3(x)
         return x
 
-# evaluate the model on loader and return accuracy, f1, precision, recall
+
+
+
+def predict(tokenizer: Tokenizer, model: DependencyParser, sentence: Sentence, device):
+    
+    
+    configuration = Configuration(sentence)
+    while not configuration.is_finished():
+        configuration_features = configuration.get_all_features()
+        tokenized_configuration_features = tokenizer.tokenize(configuration_features)
+        tokenized_configuration_features = torch.tensor(tokenized_configuration_features, dtype=torch.long)
+        tokenized_configuration_features = tokenized_configuration_features.to(device)
+        
+        predicted_label = model(tokenized_configuration_features)
+        
 
 
 def evaluate(model, loader, device):
@@ -227,38 +274,6 @@ def train(model, criterion, loader, dev_loader, optimzer, device):
     return total_loss / len(loader)
 
 
-class Tokenizer:
-    def __init__(self, word2id, pos2id, label2id):
-        self.word2id = word2id
-        self.pos2id = pos2id
-        self.label2id = label2id
-
-    def tokenize_batch(self, features):
-        all_features = []
-        for sub_feature in features:
-            sub_feature_tokenized = self.tokenize(sub_feature)
-            all_features.append(sub_feature_tokenized)
-        return np.array(all_features)
-
-    def tokenize(self, features):
-        results = []
-        for word_feature in features[:18]:
-            if word_feature in self.word2id:
-                results.append(self.word2id[word_feature])
-            else:
-                results.append(self.word2id['<UNK>'])
-        for pos_feature in features[18:36]:
-            if pos_feature in self.pos2id:
-                results.append(self.pos2id[pos_feature])
-            else:
-                results.append(self.pos2id['<UNK>'])
-
-        for label_feature in features[36:]:
-            if label_feature in self.label2id:
-                results.append(self.label2id[label_feature])
-            else:
-                results.append(self.label2id['<UNK>'])
-        return results
 
 
 if __name__ == "__main__":

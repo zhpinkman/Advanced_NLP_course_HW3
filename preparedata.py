@@ -359,14 +359,14 @@ def read_sentences(file: str):
 
 
 if __name__ == "__main__":
-    mode = 'dev'
+    mode = 'train'
     if os.path.exists(f'{mode}.oracle.txt'):
         os.remove(f'{mode}.oracle.txt')
 
     sentences_tokens = read_sentences(f'{mode}.orig.conll')
     sentences = [Sentence(tokens) for tokens in sentences_tokens]
 
-    # sentences = [sentences[1]]
+
 
     print('number of sentences: ', len(sentences))
     sentences = [
