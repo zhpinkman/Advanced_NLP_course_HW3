@@ -186,21 +186,44 @@ def evaluate(model, loader, device):
         'recall': recall_score(all_actual_labels, all_predictions, average='weighted')
     }
 
+def compute_loss(model, criterion, loader, device):
+    model.eval()
+    total_loss = 0
+    total_samples = 0
+    with torch.no_grad():
+        for x, y in tqdm(loader):
+            x = x.to(device)
+            y = y.to(device)
+            
+            outputs = model(x)
+            loss = criterion(outputs, y)
+            total_loss += loss.item()
+            total_samples += x.shape[0]
+            
+    return total_loss / total_samples
+            
 
-def train(model, criterion, loader, optimzer, device):
+def train(model, criterion, loader, dev_loader, optimzer, device):
     model.train()
     total_loss = 0
+    total_samples = 0
     for x, y in tqdm(loader):
         x = x.to(device)
         y = y.to(device)
 
         optimzer.zero_grad()
-        output = model(x)
-        loss = criterion(output, y)
+        outputs = model(x)
+        loss = criterion(outputs, y)
         loss.backward()
         optimzer.step()
 
         total_loss += loss.item()
+        total_samples += x.shape[0]
+        
+        if total_samples % 10000 == 0:
+            print(f'Loss: {total_loss / total_samples}')
+            dev_loss = compute_loss(model, criterion, dev_loader, device)
+            print(f'Dev Loss: {dev_loss}')
     return total_loss / len(loader)
 
 
@@ -265,8 +288,8 @@ if __name__ == "__main__":
     print('loaded label embedding')
 
     label_encoder = LabelEncoder()
-    all_unique_labels = get_all_unique_target_labels(train_labels)
-    label_encoder.fit(all_unique_labels)
+    all_unique_train_labels = get_all_unique_target_labels(train_labels)
+    label_encoder.fit(all_unique_train_labels)
 
     tokenized_train_labels = label_encoder.transform(train_labels)
     tokenized_dev_labels = label_encoder.transform(dev_labels)
@@ -274,6 +297,8 @@ if __name__ == "__main__":
     tokenizer = Tokenizer(word2id, pos2id, label2id)
     tokenized_train_features = tokenizer.tokenize_batch(train_features)
     tokenized_dev_features = tokenizer.tokenize_batch(dev_features)
+
+
 
     train_dataset = torch.utils.data.TensorDataset(
         torch.tensor(tokenized_train_features), torch.tensor(tokenized_train_labels))
@@ -318,8 +343,9 @@ if __name__ == "__main__":
     print('training')
 
     for epoch in range(10):
-        train_loss = train(model, criterion, train_dataloader,
-                           optimizer, device)
+        train_loss = train(model, criterion, train_dataloader, dev_dataloader, optimizer, device)
         print(f'epoch: {epoch}, train_loss: {train_loss}')
-        metrics = evaluate(model, train_dataloader, device)
-        print(metrics)
+        train_metrics = evaluate(model, train_dataloader, device)
+        print(train_metrics)
+        eval_metrics = evaluate(model, dev_dataloader, device)
+        print(eval_metrics)
