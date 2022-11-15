@@ -2,14 +2,18 @@ import torch
 import pandas as pd
 import numpy as np
 import argparse
+import pickle
+import io
 from IPython import embed
 import os
 import joblib
 from tqdm import tqdm
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score
-from preparedata import Configuration, Sentence
+import preparedata
+import joblib
 torch.manual_seed(78)
+
 
 class Tokenizer:
     def __init__(self, word2id, pos2id, label2id):
@@ -198,20 +202,109 @@ class DependencyParser(torch.nn.Module):
         return x
 
 
+def key_in_possible_actions(key, possible_actions):
+    for possible_action in possible_actions:
+        if key.startswith(possible_action):
+            return True
+    return False
 
 
-def predict(tokenizer: Tokenizer, model: DependencyParser, sentence: Sentence, device):
-    
-    
-    configuration = Configuration(sentence)
+def generate_output(configuration: preparedata.Configuration):
+    results = []
+    for token in configuration.sentence.tokens:
+        if token.token_id == 0:
+            continue
+        output = [
+            token.token_id,
+            token.word,
+            token.word,
+            token.pos,
+            token.pos,
+            '_',
+            token.predicted_parent,
+            token.predicted_label,
+            '_',
+            '_'
+        ]
+        results.append('\t'.join(output))
+    results.append('')
+    return results
+
+
+def process_one_sentence(model, tokenizer, sentence, label_encoder, device):
+
+    configuration = preparedata.Configuration(sentence=sentence)
+
     while not configuration.is_finished():
-        configuration_features = configuration.get_all_features()
-        tokenized_configuration_features = tokenizer.tokenize(configuration_features)
-        tokenized_configuration_features = torch.tensor(tokenized_configuration_features, dtype=torch.long)
-        tokenized_configuration_features = tokenized_configuration_features.to(device)
-        
-        predicted_label = model(tokenized_configuration_features)
-        
+        features = configuration.get_features()
+        tokenized_features = tokenizer.tokenize(features)
+        tokenized_features = torch.Tensor(
+            tokenized_features).long().reshape(1, -1)
+        tokenized_features = tokenized_features.to(device)
+        with torch.no_grad():
+            output = model(tokenized_features)
+
+            output_probabilities = torch.softmax(output, dim=1)
+            labels_probablities = dict(
+                zip(label_encoder.classes_, output_probabilities[0].cpu().numpy()))
+            possible_actions, forbidden_actions = configuration.get_possible_actions()
+            labels_probablities = {
+                key: value for key, value in labels_probablities.items() if key_in_possible_actions(key, possible_actions) and (key not in forbidden_actions)}
+
+            best_action = max(labels_probablities, key=labels_probablities.get)
+            if best_action == 'shift':
+                next_configuration_dict = configuration.shift()
+                configuration = next_configuration_dict['new_configuration']
+            elif best_action.startswith('left_arc'):
+                next_configuration_dict = configuration.left_arc(
+                    best_action[9:])
+                configuration = next_configuration_dict['new_configuration']
+            elif best_action.startswith('right_arc'):
+                next_configuration_dict = configuration.right_arc(
+                    best_action[10:])
+                configuration = next_configuration_dict['new_configuration']
+    output = generate_output(configuration)
+    return output
+
+
+def test_model(args):
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(device)
+
+    tokenizer = joblib.load('tokenizer.joblib')
+    label_encoder = joblib.load('label_encoder.joblib')
+
+    word_embedding = joblib.load('word_embedding.joblib')
+    pos_embedding = joblib.load('pos_embedding.joblib')
+    label_embedding = joblib.load('label_embedding.joblib')
+
+    model = DependencyParser(
+        word_embedding=word_embedding,
+        pos_embedding=pos_embedding,
+        label_embedding=label_embedding,
+        n_features=50,
+        hidden_dim=300,
+        num_labels=len(label_encoder.classes_)
+    )
+
+    model.load_state_dict(torch.load(
+        'model.pt', map_location=torch.device("cpu")))
+
+    model = model.to(device)
+    model.eval()
+
+    sentences_tokens = preparedata.read_sentences(args.test)
+    sentences = [preparedata.Sentence(tokens) for tokens in sentences_tokens]
+
+    results = []
+    for sentence in sentences:
+        results.extend(process_one_sentence(
+            model, tokenizer, sentence, label_encoder, device))
+
+    results_string = '\n'.join(results)
+    with open(args.output, 'w') as f:
+        f.write(results_string)
 
 
 def evaluate(model, loader, device):
@@ -233,6 +326,7 @@ def evaluate(model, loader, device):
         'recall': recall_score(all_actual_labels, all_predictions, average='weighted')
     }
 
+
 def compute_loss(model, criterion, loader, device):
     model.eval()
     total_loss = 0
@@ -241,14 +335,14 @@ def compute_loss(model, criterion, loader, device):
         for x, y in tqdm(loader):
             x = x.to(device)
             y = y.to(device)
-            
+
             outputs = model(x)
             loss = criterion(outputs, y)
             total_loss += loss.item()
             total_samples += x.shape[0]
-            
+
     return total_loss / total_samples
-            
+
 
 def train(model, criterion, loader, dev_loader, optimzer, device):
     model.train()
@@ -266,7 +360,7 @@ def train(model, criterion, loader, dev_loader, optimzer, device):
 
         total_loss += loss.item()
         total_samples += x.shape[0]
-        
+
         if total_samples % 10000 == 0:
             print(f'Loss: {total_loss / total_samples}')
             dev_loss = compute_loss(model, criterion, dev_loader, device)
@@ -274,15 +368,7 @@ def train(model, criterion, loader, dev_loader, optimzer, device):
     return total_loss / len(loader)
 
 
-
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--train", type=str, default="train.oracle.txt")
-    parser.add_argument("--dev", type=str, default="dev.oracle.txt")
-
-    args = parser.parse_args()
-
+def train_model(args):
     train_features, train_labels = get_features_labels(args.train)
     dev_features, dev_labels = get_features_labels(args.dev)
 
@@ -313,8 +399,6 @@ if __name__ == "__main__":
     tokenized_train_features = tokenizer.tokenize_batch(train_features)
     tokenized_dev_features = tokenizer.tokenize_batch(dev_features)
 
-
-
     train_dataset = torch.utils.data.TensorDataset(
         torch.tensor(tokenized_train_features), torch.tensor(tokenized_train_labels))
 
@@ -337,6 +421,7 @@ if __name__ == "__main__":
         hidden_dim=300,
         num_labels=len(label_encoder.classes_)
     )
+    model = model.to(device)
 
     # class_weights = compute_class_weight(
     #     class_weight='balanced',
@@ -344,23 +429,56 @@ if __name__ == "__main__":
     #     y=tokenized_labels
     # )
 
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
     criterion = torch.nn.CrossEntropyLoss()
 # weight=torch.tensor(class_weights).float()
     criterion = criterion.to(device)
 
     optimizer = torch.optim.Adagrad(
-        model.parameters(), lr=0.001, weight_decay=0.0001)
-
-    model = model.to(device)
+        model.parameters(), lr=0.007, weight_decay=0.0001)
 
     print('training')
 
-    for epoch in range(10):
-        train_loss = train(model, criterion, train_dataloader, dev_dataloader, optimizer, device)
+    best_dev_f1 = -np.inf
+    joblib.dump(tokenizer, 'tokenizer.joblib')
+    joblib.dump(label_encoder, 'label_encoder.joblib')
+    joblib.dump(word_embedding, 'word_embedding.joblib')
+    joblib.dump(pos_embedding, 'pos_embedding.joblib')
+    joblib.dump(label_embedding, 'label_embedding.joblib')
+
+    for epoch in range(5):
+        train_loss = train(model, criterion, train_dataloader,
+                           dev_dataloader, optimizer, device)
         print(f'epoch: {epoch}, train_loss: {train_loss}')
         train_metrics = evaluate(model, train_dataloader, device)
         print(train_metrics)
         eval_metrics = evaluate(model, dev_dataloader, device)
         print(eval_metrics)
+        if eval_metrics['f1'] > best_dev_f1:
+            best_dev_f1 = eval_metrics['f1']
+            model = model.cpu()
+            torch.save(model.state_dict(), 'model.pt')
+            model = model.to(device)
+
+
+if __name__ == "__main__":
+
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--train", type=str, default="train.oracle.txt")
+    parser.add_argument("--dev", type=str, default="dev.oracle.txt")
+    parser.add_argument("--test", type=str, default="dev.orig.conll")
+    parser.add_argument("--output", type=str, default="parse.out")
+    parser.add_argument('--task', type=str, default='train',
+                        choices=['train', 'test'])
+
+    args = parser.parse_args()
+
+    if args.task == 'train':
+        train_model(args)
+
+    elif args.task == 'test':
+        test_model(args)
+
+    else:
+        raise NotImplementedError()

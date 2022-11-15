@@ -3,6 +3,7 @@ from typing import List, Tuple, Dict
 from collections import defaultdict
 import networkx as nx
 import matplotlib.pyplot as plt
+import argparse
 from tqdm import tqdm
 import os
 import copy
@@ -17,6 +18,7 @@ class Token:
         self.parent = parent
         self.label = label
         self.predicted_label = None
+        self.predicted_parent = None
         self.left_children = []
         self.right_children = []
 
@@ -52,6 +54,7 @@ class Token:
             'parent': self.parent,
             'label': self.label,
             'predicted_label': self.predicted_label,
+            'predicted_parent': self.predicted_parent,
             'left_children': self.left_children,
             'right_children': self.right_children
         }
@@ -61,7 +64,6 @@ class Token:
 class Sentence:
     def __init__(self, tokens: Dict[int, Token]):
         self.tokens = tokens
-        self.__process()
 
     def get_child_parent_spans(self):
         spans = []
@@ -113,7 +115,7 @@ class Sentence:
             G, pos, edge_labels=nx.get_edge_attributes(G, 'label'))
         plt.savefig('graph.png')
 
-    def __process(self):
+    def process(self):
         self.node_edges = defaultdict(list)
         for token in self.tokens.values():
             self.node_edges[token.parent].append(token)
@@ -158,16 +160,6 @@ class Configuration:
         self.buffer = [
             token_id for token_id in sentence.tokens.keys() if token_id != 0]
         self.all_processed = []
-
-    def get_all_features(self):
-        word_features, pos_features, label_features = self.get_features()
-        assert len(word_features) == 18
-        assert len(pos_features) == 18
-        assert len(label_features) == 12
-
-        all_features = word_features + pos_features + label_features
-
-        return all_features
 
     def get_features(self):
         words = []
@@ -235,7 +227,11 @@ class Configuration:
                     poss.append('None')
                     labels.append('None')
 
-        return words, poss, labels
+        assert len(words) == 18
+        assert len(poss) == 18
+        assert len(labels) == 12
+        final_results = words + poss + labels
+        return final_results
 
     def __repr__(self) -> str:
         return f"Stack: {[self.sentence[token_id].word for token_id in self.stack]}, Buffer: {[self.sentence[token_id].word for token_id in self.buffer]}"
@@ -243,7 +239,7 @@ class Configuration:
     def is_finished(self) -> bool:
         return len(self.buffer) == 0 and len(self.stack) == 1 and self.stack[0] == 0
 
-    def __shift(self):
+    def shift(self):
         past_configuration = copy.deepcopy(self)
         self.all_processed.append(self.buffer[0])
         self.stack.append(self.buffer.pop(0))
@@ -253,10 +249,12 @@ class Configuration:
             'new_configuration': self
         }
 
-    def __left_arc(self, label):
+    def left_arc(self, label):
         past_configuration = copy.deepcopy(self)
-        self.sentence[self.stack[-1]].left_children.append(self.sentence[self.stack[-2]])
+        self.sentence[self.stack[-1]
+                      ].left_children.append(self.sentence[self.stack[-2]])
         self.sentence[self.stack[-2]].predicted_label = label
+        self.sentence[self.stack[-2]].predicted_parent = self.stack[-1]
         self.stack.pop(-2)
         return {
             'configuration': past_configuration,
@@ -264,10 +262,12 @@ class Configuration:
             'new_configuration': self
         }
 
-    def __right_arc(self, label):
+    def right_arc(self, label):
         past_configuration = copy.deepcopy(self)
-        self.sentence[self.stack[-2]].right_children.append(self.sentence[self.stack[-1]])
+        self.sentence[self.stack[-2]
+                      ].right_children.append(self.sentence[self.stack[-1]])
         self.sentence[self.stack[-1]].predicted_label = label
+        self.sentence[self.stack[-1]].predicted_parent = self.stack[-2]
         self.stack.pop(-1)
         return {
             'configuration': past_configuration,
@@ -275,14 +275,30 @@ class Configuration:
             'new_configuration': self
         }
 
+    def get_possible_actions(self):
+        actions = []
+        forbidden_actions = []
+        if len(self.buffer) > 0:
+            actions.append('shift')
+        if len(self.stack) > 1:
+            if len(self.stack) != 2:
+                actions.append('left_arc')
+        if len(self.stack) > 1:
+            actions.append('right_arc')
+
+        forbidden_actions.append('left_arc_root')
+        if len(self.stack) != 1 or len(self.buffer) != 0:
+            forbidden_actions.append('right_arc_root')
+        return actions, forbidden_actions
+
     def get_next_configuration(self):
         if self.is_finished():
             return None
         if len(self.stack) == 1:
-            return self.__shift()
+            return self.shift()
 
         if self.stack[-2] in [token.token_id for token in self.sentence.get_children(self.stack[-1])]:
-            return self.__left_arc(self.sentence[self.stack[-2]].label)
+            return self.left_arc(self.sentence[self.stack[-2]].label)
 
         if self.stack[-1] in [token.token_id for token in self.sentence.get_children(self.stack[-2])] and \
             all(
@@ -291,9 +307,9 @@ class Configuration:
                 for token_id in [token.token_id for token in self.sentence.get_children(self.stack[-1])]
             ]
         ):
-            return self.__right_arc(self.sentence[self.stack[-1]].label)
+            return self.right_arc(self.sentence[self.stack[-1]].label)
         else:
-            return self.__shift()
+            return self.shift()
 
 
 class Oracle:
@@ -307,7 +323,7 @@ class Oracle:
                     sentence)
                 with open(f'{mode}.oracle.txt', 'a') as f:
                     for configuration, label in zip(sentence_configurations, sentence_labels):
-                        configuration_features = configuration.get_all_features()
+                        configuration_features = configuration.get_features()
                         output = '\t'.join([*configuration_features, label])
                         f.write(output + '\n')
             except Exception as e:
@@ -359,14 +375,21 @@ def read_sentences(file: str):
 
 
 if __name__ == "__main__":
-    mode = 'train'
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--mode', type=str, default='train',
+                        choices=['train', 'dev'])
+    args = parser.parse_args()
+
+    mode = args.mode
+
     if os.path.exists(f'{mode}.oracle.txt'):
         os.remove(f'{mode}.oracle.txt')
 
     sentences_tokens = read_sentences(f'{mode}.orig.conll')
     sentences = [Sentence(tokens) for tokens in sentences_tokens]
-
-
+    for sentence in sentences:
+        sentence.process()
 
     print('number of sentences: ', len(sentences))
     sentences = [

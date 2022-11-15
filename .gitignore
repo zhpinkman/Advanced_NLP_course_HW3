@@ -7,3 +7,4 @@ glove.6B.50d.txt
 *.zip
 **/*.err
 **/*.out
+**/__pycache__

@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=dep_parse
-#SBATCH --output=%x-%j.out
-#SBATCH --error=%x-%j.err
+#SBATCH --output=logs/%x-%j.out
+#SBATCH --error=logs/%x-%j.err
 #SBATCH --time=3-00:00:00
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=8240
@@ -20,7 +20,18 @@ eval "$(conda shell.bash hook)"
 conda activate general
 
 
-python train.py
+# python train.py
 
+# python preparedata.py --mode train 
+
+# python preparedata.py --mode dev
+
+
+# python train.py
+
+
+python train.py --mode test --test train.orig.conll --output train.parse
+
+python train.py --mode test --test dev.orig.conll --output dev.parse
 
 conda deactivate
