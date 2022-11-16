@@ -234,14 +234,14 @@ def generate_output(configuration: preparedata.Configuration):
 def process_one_sentence(model, tokenizer, sentence, label_encoder, device):
 
     configuration = preparedata.Configuration(sentence=sentence)
-
-    while not configuration.is_finished():
-        features = configuration.get_features()
-        tokenized_features = tokenizer.tokenize(features)
-        tokenized_features = torch.Tensor(
-            tokenized_features).long().reshape(1, -1)
-        tokenized_features = tokenized_features.to(device)
-        with torch.no_grad():
+    model = model.to(device)
+    with torch.no_grad():
+        while not configuration.is_finished():
+            features = configuration.get_features()
+            tokenized_features = tokenizer.tokenize(features)
+            tokenized_features = torch.Tensor(
+                tokenized_features).long().reshape(1, -1)
+            tokenized_features = tokenized_features.to(device)
             output = model(tokenized_features)
 
             output_probabilities = torch.softmax(output, dim=1)
@@ -274,19 +274,6 @@ def test_model(args):
 
     tokenizer = joblib.load('tokenizer.joblib')
     label_encoder = joblib.load('label_encoder.joblib')
-
-    word_embedding = joblib.load('word_embedding.joblib')
-    pos_embedding = joblib.load('pos_embedding.joblib')
-    label_embedding = joblib.load('label_embedding.joblib')
-
-    model = DependencyParser(
-        word_embedding=word_embedding,
-        pos_embedding=pos_embedding,
-        label_embedding=label_embedding,
-        n_features=50,
-        hidden_dim=300,
-        num_labels=len(label_encoder.classes_)
-    )
 
     # model = torch.load('model.pt', map_location=torch.device('cpu'))
     model = joblib.load('model.joblib')
@@ -372,7 +359,6 @@ def train_model(args):
     train_features, train_labels = get_features_labels(args.train)
     dev_features, dev_labels = get_features_labels(args.dev)
 
-
     word_embedding, word2id = create_word_embedding_matrix(
         vocab=get_all_unique_words(train_features)
     )
@@ -396,7 +382,7 @@ def train_model(args):
     tokenizer = Tokenizer(word2id, pos2id, label2id)
     tokenized_train_features = tokenizer.tokenize_batch(train_features)
     tokenized_dev_features = tokenizer.tokenize_batch(dev_features)
-    
+
     joblib.dump(tokenizer, 'tokenizer.joblib')
     joblib.dump(label_encoder, 'label_encoder.joblib')
     joblib.dump(word_embedding, 'word_embedding.joblib')
@@ -443,7 +429,6 @@ def train_model(args):
     print('training')
 
     best_dev_f1 = -np.inf
-    
 
     for epoch in range(5):
         train_loss = train(model, criterion, train_dataloader,
