@@ -211,20 +211,20 @@ def key_in_possible_actions(key, possible_actions):
 
 def generate_output(configuration: preparedata.Configuration):
     results = []
-    for token in configuration.sentence.tokens:
+    for token in configuration.sentence.tokens.values():
         if token.token_id == 0:
             continue
         output = [
-            token.token_id,
-            token.word,
-            token.word,
-            token.pos,
-            token.pos,
-            '_',
-            token.predicted_parent,
-            token.predicted_label,
-            '_',
-            '_'
+            str(token.token_id),
+            str(token.word),
+            str(token.word),
+            str(token.pos),
+            str(token.pos),
+            str('_'),
+            str(token.predicted_parent),
+            str(token.predicted_label),
+            str('_'),
+            str('_')
         ]
         results.append('\t'.join(output))
     results.append('')
@@ -298,7 +298,7 @@ def test_model(args):
     sentences = [preparedata.Sentence(tokens) for tokens in sentences_tokens]
 
     results = []
-    for sentence in sentences:
+    for sentence in tqdm(sentences, leave = False):
         results.extend(process_one_sentence(
             model, tokenizer, sentence, label_encoder, device))
 
@@ -361,7 +361,7 @@ def train(model, criterion, loader, dev_loader, optimzer, device):
         total_loss += loss.item()
         total_samples += x.shape[0]
 
-        if total_samples % 10000 == 0:
+        if total_samples % 100000 == 0:
             print(f'Loss: {total_loss / total_samples}')
             dev_loss = compute_loss(model, criterion, dev_loader, device)
             print(f'Dev Loss: {dev_loss}')
@@ -455,7 +455,7 @@ def train_model(args):
         print(eval_metrics)
         if eval_metrics['f1'] > best_dev_f1:
             best_dev_f1 = eval_metrics['f1']
-            model = model.cpu()
+            model = model.to('cpu')
             torch.save(model.state_dict(), 'model.pt')
             model = model.to(device)
 
