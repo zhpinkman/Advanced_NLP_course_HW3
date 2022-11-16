@@ -385,9 +385,6 @@ def train_model(args):
 
     joblib.dump(tokenizer, 'tokenizer.joblib')
     joblib.dump(label_encoder, 'label_encoder.joblib')
-    joblib.dump(word_embedding, 'word_embedding.joblib')
-    joblib.dump(pos_embedding, 'pos_embedding.joblib')
-    joblib.dump(label_embedding, 'label_embedding.joblib')
 
     train_dataset = torch.utils.data.TensorDataset(
         torch.tensor(tokenized_train_features), torch.tensor(tokenized_train_labels))
