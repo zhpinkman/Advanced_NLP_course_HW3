@@ -275,7 +275,7 @@ def test_model(args):
     tokenizer = joblib.load('tokenizer.joblib')
     label_encoder = joblib.load('label_encoder.joblib')
 
-    model = joblib.load('model.joblib')
+    model = joblib.load('train.model')
 
     model = model.to(device)
     model.eval()
@@ -437,7 +437,7 @@ def train_model(args):
         if eval_metrics['f1'] > best_dev_f1:
             best_dev_f1 = eval_metrics['f1']
             model = model.to('cpu')
-            joblib.dump(model, 'model.joblib')
+            joblib.dump(model, 'train.model')
             model = model.to(device)
 
 
