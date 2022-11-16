@@ -162,7 +162,9 @@ def test_model(args):
     print(device)
 
     tokenizer = joblib.load('tokenizer.joblib')
-    label_encoder = joblib.load('label_encoder.joblib')
+    all_actions = joblib.load("unique_target_labels.joblib")
+    label_encoder = LabelEncoder()
+    label_encoder.fit(all_actions)
 
     model = joblib.load(args.m)
 

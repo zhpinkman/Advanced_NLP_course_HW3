@@ -27,11 +27,10 @@ conda activate general
 # python preparedata.py --mode dev
 
 
-# python train.py
+python train.py -m model.without_word_embedding --random_word_embedding
 
+python parse.py -i dev.orig.conll -o dev.parse.out -m model.without_word_embedding
 
-python train.py --task test --test train.orig.conll --output train.parse.out
-
-python train.py --task test --test dev.orig.conll --output dev.parse.out
+java -cp stanford-parser.jar edu.stanford.nlp.trees.DependencyScoring -g dev.orig.conll -conllx True -s dev.parse.out
 
 conda deactivate

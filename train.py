@@ -202,7 +202,6 @@ class DependencyParser(torch.nn.Module):
         return x
 
 
-
 def evaluate(model, loader, device):
     model.eval()
     all_predictions = []
@@ -268,9 +267,14 @@ def train_model(args):
     train_features, train_labels = get_features_labels(args.train)
     dev_features, dev_labels = get_features_labels(args.dev)
 
-    word_embedding, word2id = create_word_embedding_matrix(
-        vocab=get_all_unique_words(train_features)
-    )
+    if args.random_word_embedding == 'True':
+        word_embedding, word2id = create_random_embedding_matrix(
+            vocab=get_all_unique_words(train_features)
+        )
+    else:
+        word_embedding, word2id = create_word_embedding_matrix(
+            vocab=get_all_unique_words(train_features)
+        )
     print('loaded word embedding')
     pos_embedding, pos2id = create_random_embedding_matrix(
         vocab=get_all_unique_poss(train_features)
@@ -360,8 +364,10 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--train", type=str, default="train.converted")
     parser.add_argument("--dev", type=str, default="dev.converted")
-    parser.add_argument('-m', type=str, help='model name')
+    parser.add_argument('-m', type=str, help='model name', required=True)
+    parser.add_argument('--random_word_embedding', action='store_true')
 
     args = parser.parse_args()
+    print(args)
 
     train_model(args)
