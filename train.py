@@ -288,7 +288,8 @@ def test_model(args):
         num_labels=len(label_encoder.classes_)
     )
 
-    model = torch.load('model.pt')
+    # model = torch.load('model.pt', map_location=torch.device('cpu'))
+    model = joblib.load('model.joblib')
 
     model = model.to(device)
     model.eval()
@@ -297,7 +298,7 @@ def test_model(args):
     sentences = [preparedata.Sentence(tokens) for tokens in sentences_tokens]
 
     results = []
-    for sentence in tqdm(sentences, leave = False):
+    for sentence in tqdm(sentences, leave=False):
         results.extend(process_one_sentence(
             model, tokenizer, sentence, label_encoder, device))
 
@@ -371,8 +372,6 @@ def train_model(args):
     train_features, train_labels = get_features_labels(args.train)
     dev_features, dev_labels = get_features_labels(args.dev)
 
-    # train_features = train_features[:20000, :]
-    # train_labels = train_labels[:20000]
 
     word_embedding, word2id = create_word_embedding_matrix(
         vocab=get_all_unique_words(train_features)
@@ -397,6 +396,12 @@ def train_model(args):
     tokenizer = Tokenizer(word2id, pos2id, label2id)
     tokenized_train_features = tokenizer.tokenize_batch(train_features)
     tokenized_dev_features = tokenizer.tokenize_batch(dev_features)
+    
+    joblib.dump(tokenizer, 'tokenizer.joblib')
+    joblib.dump(label_encoder, 'label_encoder.joblib')
+    joblib.dump(word_embedding, 'word_embedding.joblib')
+    joblib.dump(pos_embedding, 'pos_embedding.joblib')
+    joblib.dump(label_embedding, 'label_embedding.joblib')
 
     train_dataset = torch.utils.data.TensorDataset(
         torch.tensor(tokenized_train_features), torch.tensor(tokenized_train_labels))
@@ -433,16 +438,12 @@ def train_model(args):
     criterion = criterion.to(device)
 
     optimizer = torch.optim.Adagrad(
-        model.parameters(), lr=0.007, weight_decay=0.0001)
+        model.parameters(), lr=0.01, weight_decay=0.0001)
 
     print('training')
 
     best_dev_f1 = -np.inf
-    joblib.dump(tokenizer, 'tokenizer.joblib')
-    joblib.dump(label_encoder, 'label_encoder.joblib')
-    joblib.dump(word_embedding, 'word_embedding.joblib')
-    joblib.dump(pos_embedding, 'pos_embedding.joblib')
-    joblib.dump(label_embedding, 'label_embedding.joblib')
+    
 
     for epoch in range(5):
         train_loss = train(model, criterion, train_dataloader,
@@ -455,7 +456,8 @@ def train_model(args):
         if eval_metrics['f1'] > best_dev_f1:
             best_dev_f1 = eval_metrics['f1']
             model = model.to('cpu')
-            torch.save(model, 'model.pt')
+            # torch.save(model, 'model.pt')
+            joblib.dump(model, 'model.joblib')
             model = model.to(device)
 
 
@@ -467,7 +469,7 @@ if __name__ == "__main__":
     parser.add_argument("--train", type=str, default="train.oracle.txt")
     parser.add_argument("--dev", type=str, default="dev.oracle.txt")
     parser.add_argument("--test", type=str, default="dev.orig.conll")
-    parser.add_argument("--output", type=str, default="parse.out")
+    parser.add_argument("--output", type=str, default="dev.parse.out")
     parser.add_argument('--task', type=str, default='train',
                         choices=['train', 'test'])
 
