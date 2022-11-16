@@ -202,96 +202,6 @@ class DependencyParser(torch.nn.Module):
         return x
 
 
-def key_in_possible_actions(key, possible_actions):
-    for possible_action in possible_actions:
-        if key.startswith(possible_action):
-            return True
-    return False
-
-
-def generate_output(configuration: preparedata.Configuration):
-    results = []
-    for token in configuration.sentence.tokens.values():
-        if token.token_id == 0:
-            continue
-        output = [
-            str(token.token_id),
-            str(token.word),
-            str(token.word),
-            str(token.pos),
-            str(token.pos),
-            str('_'),
-            str(token.predicted_parent),
-            str(token.predicted_label),
-            str('_'),
-            str('_')
-        ]
-        results.append('\t'.join(output))
-    results.append('')
-    return results
-
-
-def process_one_sentence(model, tokenizer, sentence, label_encoder, device):
-
-    configuration = preparedata.Configuration(sentence=sentence)
-    model = model.to(device)
-    with torch.no_grad():
-        while not configuration.is_finished():
-            features = configuration.get_features()
-            tokenized_features = tokenizer.tokenize(features)
-            tokenized_features = torch.Tensor(
-                tokenized_features).long().reshape(1, -1)
-            tokenized_features = tokenized_features.to(device)
-            output = model(tokenized_features)
-
-            output_probabilities = torch.softmax(output, dim=1)
-            labels_probablities = dict(
-                zip(label_encoder.classes_, output_probabilities[0].cpu().numpy()))
-            possible_actions, forbidden_actions = configuration.get_possible_actions()
-            labels_probablities = {
-                key: value for key, value in labels_probablities.items() if key_in_possible_actions(key, possible_actions) and (key not in forbidden_actions)}
-
-            best_action = max(labels_probablities, key=labels_probablities.get)
-            if best_action == 'shift':
-                next_configuration_dict = configuration.shift()
-                configuration = next_configuration_dict['new_configuration']
-            elif best_action.startswith('left_arc'):
-                next_configuration_dict = configuration.left_arc(
-                    best_action[9:])
-                configuration = next_configuration_dict['new_configuration']
-            elif best_action.startswith('right_arc'):
-                next_configuration_dict = configuration.right_arc(
-                    best_action[10:])
-                configuration = next_configuration_dict['new_configuration']
-    output = generate_output(configuration)
-    return output
-
-
-def test_model(args):
-
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(device)
-
-    tokenizer = joblib.load('tokenizer.joblib')
-    label_encoder = joblib.load('label_encoder.joblib')
-
-    model = joblib.load('train.model')
-
-    model = model.to(device)
-    model.eval()
-
-    sentences_tokens = preparedata.read_sentences(args.test)
-    sentences = [preparedata.Sentence(tokens) for tokens in sentences_tokens]
-
-    results = []
-    for sentence in tqdm(sentences, leave=False):
-        results.extend(process_one_sentence(
-            model, tokenizer, sentence, label_encoder, device))
-
-    results_string = '\n'.join(results)
-    with open(args.output, 'w') as f:
-        f.write(results_string)
-
 
 def evaluate(model, loader, device):
     model.eval()
@@ -416,7 +326,9 @@ def train_model(args):
     # )
 
     criterion = torch.nn.CrossEntropyLoss()
-# weight=torch.tensor(class_weights).float()
+
+    # weight=torch.tensor(class_weights).float()
+
     criterion = criterion.to(device)
 
     optimizer = torch.optim.Adagrad(
@@ -437,7 +349,7 @@ def train_model(args):
         if eval_metrics['f1'] > best_dev_f1:
             best_dev_f1 = eval_metrics['f1']
             model = model.to('cpu')
-            joblib.dump(model, 'train.model')
+            joblib.dump(model, args.m)
             model = model.to(device)
 
 
@@ -446,20 +358,10 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--train", type=str, default="train.oracle.txt")
-    parser.add_argument("--dev", type=str, default="dev.oracle.txt")
-    parser.add_argument("--test", type=str, default="dev.orig.conll")
-    parser.add_argument("--output", type=str, default="dev.parse.out")
-    parser.add_argument('--task', type=str, default='train',
-                        choices=['train', 'test'])
+    parser.add_argument("--train", type=str, default="train.converted")
+    parser.add_argument("--dev", type=str, default="dev.converted")
+    parser.add_argument('-m', type=str, help='model name')
 
     args = parser.parse_args()
 
-    if args.task == 'train':
-        train_model(args)
-
-    elif args.task == 'test':
-        test_model(args)
-
-    else:
-        raise NotImplementedError()
+    train_model(args)
