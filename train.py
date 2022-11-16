@@ -288,8 +288,7 @@ def test_model(args):
         num_labels=len(label_encoder.classes_)
     )
 
-    model.load_state_dict(torch.load(
-        'model.pt', map_location=torch.device("cpu")))
+    model = torch.load('model.pt')
 
     model = model.to(device)
     model.eval()
@@ -455,8 +454,8 @@ def train_model(args):
         print(eval_metrics)
         if eval_metrics['f1'] > best_dev_f1:
             best_dev_f1 = eval_metrics['f1']
-            model = model.cpu()
-            torch.save(model.state_dict(), 'model.pt')
+            model = model.to('cpu')
+            torch.save(model, 'model.pt')
             model = model.to(device)
 
 

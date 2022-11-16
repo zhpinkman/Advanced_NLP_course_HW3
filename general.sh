@@ -27,11 +27,11 @@ conda activate general
 # python preparedata.py --mode dev
 
 
-# python train.py
+python train.py
 
 
-python train.py --mode test --test train.orig.conll --output train.parse
+# python train.py --mode test --test train.orig.conll --output train.parse
 
-python train.py --mode test --test dev.orig.conll --output dev.parse
+# python train.py --mode test --test dev.orig.conll --output dev.parse
 
 conda deactivate
