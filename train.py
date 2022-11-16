@@ -275,7 +275,6 @@ def test_model(args):
     tokenizer = joblib.load('tokenizer.joblib')
     label_encoder = joblib.load('label_encoder.joblib')
 
-    # model = torch.load('model.pt', map_location=torch.device('cpu'))
     model = joblib.load('model.joblib')
 
     model = model.to(device)
@@ -438,7 +437,6 @@ def train_model(args):
         if eval_metrics['f1'] > best_dev_f1:
             best_dev_f1 = eval_metrics['f1']
             model = model.to('cpu')
-            # torch.save(model, 'model.pt')
             joblib.dump(model, 'model.joblib')
             model = model.to(device)
 
