@@ -321,7 +321,7 @@ class Oracle:
             try:
                 sentence_configurations, sentence_labels = self.get_configurations(
                     sentence)
-                with open(f'{mode}.oracle.txt', 'a') as f:
+                with open(f'{mode}.converted', 'a') as f:
                     for configuration, label in zip(sentence_configurations, sentence_labels):
                         configuration_features = configuration.get_features()
                         output = '\t'.join([*configuration_features, label])
@@ -383,8 +383,8 @@ if __name__ == "__main__":
 
     mode = args.mode
 
-    if os.path.exists(f'{mode}.oracle.txt'):
-        os.remove(f'{mode}.oracle.txt')
+    if os.path.exists(f'{mode}.converted'):
+        os.remove(f'{mode}.converted')
 
     sentences_tokens = read_sentences(f'{mode}.orig.conll')
     sentences = [Sentence(tokens) for tokens in sentences_tokens]
