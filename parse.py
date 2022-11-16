@@ -175,7 +175,7 @@ def test_model(args):
     sentences = [preparedata.Sentence(tokens) for tokens in sentences_tokens]
 
     results = []
-    for sentence in tqdm(sentences, leave=False):
+    for sentence in sentences:
         results.extend(process_one_sentence(
             model, tokenizer, sentence, label_encoder, device))
 
