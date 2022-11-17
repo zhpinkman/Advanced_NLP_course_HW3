@@ -27,10 +27,21 @@ conda activate general
 # python preparedata.py --mode dev
 
 
-python train.py -m model.without_word_embedding --random_word_embedding
+# python train.py -m model.without_word_embedding --random_word_embedding
 
-python parse.py -i dev.orig.conll -o dev.parse.out -m model.without_word_embedding
+# python train.py -m model.more_epochs --epochs 10
 
-java -cp stanford-parser.jar edu.stanford.nlp.trees.DependencyScoring -g dev.orig.conll -conllx True -s dev.parse.out
+# python train.py -m model.optimizer_adam --optimizer adam
+
+python train.py -m model.data_ratio_0.1 --data_ratio 0.1
+
+python train.py -m model.data_ratio_0.4 --data_ratio 0.4
+
+python train.py -m model.data_ratio_0.7 --data_ratio 0.7
+
+
+# python parse.py -i dev.orig.conll -o dev.parse.out -m model.without_word_embedding
+
+# java -cp stanford-parser.jar edu.stanford.nlp.trees.DependencyScoring -g dev.orig.conll -conllx True -s dev.parse.out
 
 conda deactivate

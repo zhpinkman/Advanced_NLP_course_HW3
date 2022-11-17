@@ -267,6 +267,16 @@ def train_model(args):
     train_features, train_labels = get_features_labels(args.train)
     dev_features, dev_labels = get_features_labels(args.dev)
 
+    if args.data_ratio < 1:
+        random_indices = np.random.choice(
+            np.arange(len(train_features)),
+            size=int(args.data_ratio * len(train_features)),
+            replace=False
+        )
+
+        train_features = np.array([train_features[i] for i in random_indices])
+        train_labels = np.array([train_labels[i] for i in random_indices])
+
     if args.random_word_embedding == 'True':
         word_embedding, word2id = create_random_embedding_matrix(
             vocab=get_all_unique_words(train_features)
@@ -335,14 +345,22 @@ def train_model(args):
 
     criterion = criterion.to(device)
 
-    optimizer = torch.optim.Adagrad(
-        model.parameters(), lr=0.01, weight_decay=0.0001)
+    if args.optimizer == 'adam':
+        optimizer = torch.optim.Adam(
+            model.parameters(), lr=0.01, weight_decay=0.0001
+        )
+    elif args.optimizer == 'adagrad':
+        optimizer = torch.optim.Adagrad(
+            model.parameters(), lr=0.01, weight_decay=0.0001
+        )
+    else:
+        raise NotImplementedError()
 
     print('training')
 
     best_dev_f1 = -np.inf
 
-    for epoch in range(5):
+    for epoch in range(args.epochs):
         train_loss = train(model, criterion, train_dataloader,
                            dev_dataloader, optimizer, device)
         print(f'epoch: {epoch}, train_loss: {train_loss}')
@@ -366,6 +384,9 @@ if __name__ == "__main__":
     parser.add_argument("--dev", type=str, default="dev.converted")
     parser.add_argument('-m', type=str, help='model name', required=True)
     parser.add_argument('--random_word_embedding', action='store_true')
+    parser.add_argument('--optimizer', type=str, default='adagrad')
+    parser.add_argument('--data_ratio', type=float, default=1.0)
+    parser.add_argument('--epochs', type=int, default=5)
 
     args = parser.parse_args()
     print(args)
