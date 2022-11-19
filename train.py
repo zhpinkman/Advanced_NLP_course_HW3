@@ -115,12 +115,12 @@ def get_all_unique_words(features):
     return unique_words
 
 
-def create_random_embedding_matrix(vocab):
+def create_random_embedding_matrix(vocab, n_features):
     word2id = {word: index for index, word in enumerate(vocab)}
     word2id['<UNK>'] = len(word2id)
 
     vocab_size = len(word2id)
-    vector_size = 50
+    vector_size = n_features
 
     embedding_matrix = np.random.rand(vocab_size, vector_size)
     embedding = torch.nn.Embedding(
@@ -130,12 +130,12 @@ def create_random_embedding_matrix(vocab):
     return embedding, word2id
 
 
-def create_word_embedding_matrix(vocab):
-    glove = pd.read_csv('glove.6B.50d.txt', sep=" ",
+def create_word_embedding_matrix(vocab, n_features):
+    glove = pd.read_csv(f'glove.6B.{n_features}d.txt', sep=" ",
                         quoting=3, header=None, index_col=0)
     glove_embedding = {key: val.values for key, val in glove.T.items()}
 
-    embedding_matrix = np.zeros((len(vocab), 50))
+    embedding_matrix = np.zeros((len(vocab), n_features))
 
     word2id = dict()
 
@@ -145,7 +145,7 @@ def create_word_embedding_matrix(vocab):
         word2id[word] = index
 
     word2id['<UNK>'] = len(word2id)
-    unk_matrix = np.zeros((1, 50))
+    unk_matrix = np.zeros((1, n_features))
 
     embedding_matrix = np.concatenate((embedding_matrix, unk_matrix), axis=0)
 
@@ -279,19 +279,23 @@ def train_model(args):
 
     if args.random_word_embedding == 'True':
         word_embedding, word2id = create_random_embedding_matrix(
-            vocab=get_all_unique_words(train_features)
+            vocab=get_all_unique_words(train_features),
+            n_features=args.n_features
         )
     else:
         word_embedding, word2id = create_word_embedding_matrix(
-            vocab=get_all_unique_words(train_features)
+            vocab=get_all_unique_words(train_features),
+            n_features=args.n_features
         )
     print('loaded word embedding')
     pos_embedding, pos2id = create_random_embedding_matrix(
-        vocab=get_all_unique_poss(train_features)
+        vocab=get_all_unique_poss(train_features),
+        n_features=args.n_features
     )
     print('loaded pos embedding')
     label_embedding, label2id = create_random_embedding_matrix(
-        vocab=get_all_unique_labels(train_features)
+        vocab=get_all_unique_labels(train_features),
+        n_features=args.n_features
     )
     print('loaded label embedding')
 
@@ -327,8 +331,8 @@ def train_model(args):
         word_embedding=word_embedding,
         pos_embedding=pos_embedding,
         label_embedding=label_embedding,
-        n_features=50,
-        hidden_dim=300,
+        n_features=args.n_features,
+        hidden_dim=args.hidden_dim,
         num_labels=len(label_encoder.classes_)
     )
     model = model.to(device)
@@ -387,6 +391,9 @@ if __name__ == "__main__":
     parser.add_argument('--optimizer', type=str, default='adagrad')
     parser.add_argument('--data_ratio', type=float, default=1.0)
     parser.add_argument('--epochs', type=int, default=5)
+    parser.add_argument('--hidden_dim', type=int, default=300)
+    parser.add_argument('--n_features', type=int,
+                        default=50, choices=[50, 100, 200, 300])
 
     args = parser.parse_args()
     print(args)

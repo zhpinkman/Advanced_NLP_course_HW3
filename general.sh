@@ -33,11 +33,19 @@ conda activate general
 
 # python train.py -m model.optimizer_adam --optimizer adam
 
-python train.py -m model.data_ratio_0.1 --data_ratio 0.1
+# python train.py -m model.data_ratio_0.1 --data_ratio 0.1
 
-python train.py -m model.data_ratio_0.4 --data_ratio 0.4
+# python train.py -m model.data_ratio_0.4 --data_ratio 0.4
 
-python train.py -m model.data_ratio_0.7 --data_ratio 0.7
+# python train.py -m model.data_ratio_0.7 --data_ratio 0.7
+
+python train.py -m model.n_features_100 --n_features 100
+
+python train.py -m model.n_features_200 --n_features 200
+
+python train.py -m model.n_features_300 --n_features 300
+
+python train.py -m model.hidden_dim_500 --hidden_dim 500
 
 
 # python parse.py -i dev.orig.conll -o dev.parse.out -m model.without_word_embedding
