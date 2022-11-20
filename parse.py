@@ -121,7 +121,7 @@ def generate_output(configuration: preparedata.Configuration):
 
 
 def process_one_sentence(model, tokenizer, sentence, label_encoder, device):
-
+    model.eval()
     configuration = preparedata.Configuration(sentence=sentence)
     model = model.to(device)
     with torch.no_grad():
@@ -175,7 +175,7 @@ def test_model(args):
     sentences = [preparedata.Sentence(tokens) for tokens in sentences_tokens]
 
     results = []
-    for sentence in sentences:
+    for sentence in tqdm(sentences, leave=False):
         results.extend(process_one_sentence(
             model, tokenizer, sentence, label_encoder, device))
 
