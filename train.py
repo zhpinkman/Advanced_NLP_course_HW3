@@ -167,12 +167,24 @@ class DependencyParser(torch.nn.Module):
         label_embedding,
         n_features: int,
         hidden_dim: int,
-        num_labels: int
+        num_labels: int,
+        activation_function: str,
+        use_dropout: bool
     ) -> None:
         super().__init__()
         self.word_embedding = word_embedding
         self.pos_embedding = pos_embedding
         self.label_embedding = label_embedding
+
+        if activation_function == "relu":
+            self.activation_function = torch.relu
+        elif activation_function == "tanh":
+            self.activation_function = torch.tanh
+
+        if use_dropout:
+            self.dropout = torch.nn.Dropout(p=0.5)
+        else:
+            self.dropout = torch.nn.Identity()
 
         self.n_features = n_features
         self.hidden_dim = hidden_dim
@@ -196,8 +208,11 @@ class DependencyParser(torch.nn.Module):
         label_features = label_features.reshape(-1, 12 * self.n_features)
 
         x = torch.cat((word_features, pos_features, label_features), dim=1)
-        x = torch.relu(self.f1(x))
-        x = torch.relu(self.f2(x))
+
+        x = self.dropout(x)
+
+        x = self.activation_function(self.f1(x))
+        x = self.activation_function(self.f2(x))
         x = self.f3(x)
         return x
 
@@ -333,7 +348,9 @@ def train_model(args):
         label_embedding=label_embedding,
         n_features=args.n_features,
         hidden_dim=args.hidden_dim,
-        num_labels=len(label_encoder.classes_)
+        num_labels=len(label_encoder.classes_),
+        activation_function=args.activation_function,
+        use_dropout=args.use_dropout
     )
     model = model.to(device)
 
@@ -351,11 +368,11 @@ def train_model(args):
 
     if args.optimizer == 'adam':
         optimizer = torch.optim.Adam(
-            model.parameters(), lr=0.01, weight_decay=0.0001
+            model.parameters(), lr=0.05, weight_decay=0.0001
         )
     elif args.optimizer == 'adagrad':
         optimizer = torch.optim.Adagrad(
-            model.parameters(), lr=0.01, weight_decay=0.0001
+            model.parameters(), lr=0.05, weight_decay=0.0001
         )
     else:
         raise NotImplementedError()
@@ -394,6 +411,8 @@ if __name__ == "__main__":
     parser.add_argument('--hidden_dim', type=int, default=300)
     parser.add_argument('--n_features', type=int,
                         default=50, choices=[50, 100, 200, 300])
+    parser.add_argument('--activation_function', type=str, default="relu")
+    parser.add_argument('--use_dropout', action='store_true')
 
     args = parser.parse_args()
     print(args)

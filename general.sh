@@ -20,12 +20,12 @@ eval "$(conda shell.bash hook)"
 conda activate general
 
 
-# python train.py
 
 # python preparedata.py --mode train 
 
 # python preparedata.py --mode dev
 
+# python train.py -m train.model
 
 # python train.py -m model.without_word_embedding --random_word_embedding
 
@@ -39,14 +39,21 @@ conda activate general
 
 # python train.py -m model.data_ratio_0.7 --data_ratio 0.7
 
-python train.py -m model.n_features_100 --n_features 100
+# python train.py -m model.n_features_100 --n_features 100
 
-python train.py -m model.n_features_200 --n_features 200
+# python train.py -m model.n_features_200 --n_features 200
 
-python train.py -m model.n_features_300 --n_features 300
+# python train.py -m model.n_features_300 --n_features 300
 
-python train.py -m model.hidden_dim_500 --hidden_dim 500
+# python train.py -m model.hidden_dim_500 --hidden_dim 500
 
+# python train.py -m model.activation_function_tanh --activation_function tanh
+
+# python train.py -m model.use_dropout --use_dropout --epochs 10
+
+# python train.py -m model.hidden_dim_50 --hidden_dim 50
+
+# python train.py -m model.hidden_dim_100 --hidden_dim 100
 
 # python parse.py -i dev.orig.conll -o dev.parse.out -m model.without_word_embedding
 
