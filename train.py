@@ -407,12 +407,12 @@ if __name__ == "__main__":
     parser.add_argument('--random_word_embedding', action='store_true')
     parser.add_argument('--optimizer', type=str, default='adagrad')
     parser.add_argument('--data_ratio', type=float, default=1.0)
-    parser.add_argument('--epochs', type=int, default=5)
+    parser.add_argument('--epochs', type=int, default=10)
     parser.add_argument('--hidden_dim', type=int, default=300)
     parser.add_argument('--n_features', type=int,
                         default=50, choices=[50, 100, 200, 300])
     parser.add_argument('--activation_function', type=str, default="relu")
-    parser.add_argument('--use_dropout', action='store_true')
+    parser.add_argument('--use_dropout', action='store_true', default = True)
 
     args = parser.parse_args()
     print(args)
