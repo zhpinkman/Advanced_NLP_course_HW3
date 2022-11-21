@@ -88,11 +88,11 @@ Each line has 49 entities separated by tab, the first 48 being the features and 
 
 (1) the top three words in the buffer and stack $s_1, s_2, s_3, b_1, b_2, b_3$, 
 
-(2) the first and second leftmost and rightmost children of the top two words on the stack ($lc_1(s_i), rc_1(s_i) lc_2(s_i), rc_2(s_i), i = 1, 2$) 
+(2) the first and second leftmost and rightmost children of the top two words on the stack $lc_1(s_i), rc_1(s_i) lc_2(s_i), rc_2(s_i), i = 1, 2$
 
-(3) the leftmost of leftmost and rightmost of the rightmost children of the top two words on the stack ($lc_1(lc_1(s_i)), rc_1(rc_1(s_i)), i = 1, 2$).
+(3) the leftmost of leftmost and rightmost of the rightmost children of the top two words on the stack $lc_1(lc_1(s_i)), rc_1(rc_1(s_i)), i = 1, 2$.
 
-The second 18 features are the POS tags of the words extracted for the 18 word features, and the last 12 features are the dependency label of the last 12 words of the 18 words discussed in the word features, as there are no dependency labels for the words still in the stack or buffer and yet has to be processed to be assigned parent and dependency label.
+The second 18 features are the POS tags of the words extracted for the 18 word features, and the last 12 features are the dependency label of the last 12 words of the 18 words discussed in the word features, as there are no dependency labels for the words still in the stack or buffer and yet have to be processed to be assigned parent and dependency label.
 
 
 ####
