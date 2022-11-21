@@ -20,40 +20,50 @@ eval "$(conda shell.bash hook)"
 conda activate general
 
 
+# NOTE: Prepare the data from the raw data to get the trainable data to be fed into the dependency parser neural network
 
 # python preparedata.py --mode train 
 
 # python preparedata.py --mode dev
 
-python train.py -m train.model
+# # # # # # # # # # # # # # # # # 
 
-python train.py -m model.without_word_embedding --random_word_embedding
+# NOTE: training the dependency parser neural network using different configurations and hyperparameters
 
-# python train.py -m model.more_epochs --epochs 10
+# python train.py -m train.model
 
-python train.py -m model.optimizer_adam --optimizer adam
+# python train.py -m model.without_word_embedding --random_word_embedding
 
-python train.py -m model.data_ratio_0.1 --data_ratio 0.1
+# python train.py -m model.optimizer_adam --optimizer adam
 
-python train.py -m model.data_ratio_0.4 --data_ratio 0.4
+# python train.py -m model.data_ratio_0.1 --data_ratio 0.1
 
-python train.py -m model.data_ratio_0.7 --data_ratio 0.7
+# python train.py -m model.data_ratio_0.4 --data_ratio 0.4
 
-python train.py -m model.n_features_100 --n_features 100
 
-python train.py -m model.n_features_200 --n_features 200
+# # # # # # # # # # # # # # # # # 
 
-python train.py -m model.n_features_300 --n_features 300
+# python train.py -m model.data_ratio_0.7 --data_ratio 0.7
 
-python train.py -m model.hidden_dim_500 --hidden_dim 500
+# python train.py -m model.n_features_100 --n_features 100
 
-python train.py -m model.activation_function_tanh --activation_function tanh
+# python train.py -m model.n_features_200 --n_features 200
 
-# python train.py -m model.use_dropout --use_dropout --epochs 10
+# python train.py -m model.n_features_300 --n_features 300
 
-python train.py -m model.hidden_dim_50 --hidden_dim 50
+# python train.py -m model.hidden_dim_500 --hidden_dim 500
 
-python train.py -m model.hidden_dim_100 --hidden_dim 100
+# # # # # # # # # # # # # # # # # # 
+
+# python train.py -m model.activation_function_tanh --activation_function tanh
+
+# python train.py -m model.hidden_dim_50 --hidden_dim 50
+
+# python train.py -m model.hidden_dim_100 --hidden_dim 100
+
+# # # # # # # # # # # # # # # # # 
+
+# NOTE: evaluation of the trained dependency parser neural networks based on LAS and UAS
 
 # python parse.py -i dev.orig.conll -o dev.parse.out -m model.without_word_embedding
 

@@ -368,11 +368,11 @@ def train_model(args):
 
     if args.optimizer == 'adam':
         optimizer = torch.optim.Adam(
-            model.parameters(), lr=0.05, weight_decay=0.0001
+            model.parameters(), lr=0.08, weight_decay=0.0001
         )
     elif args.optimizer == 'adagrad':
         optimizer = torch.optim.Adagrad(
-            model.parameters(), lr=0.05, weight_decay=0.0001
+            model.parameters(), lr=0.08, weight_decay=0.0001
         )
     else:
         raise NotImplementedError()
@@ -401,18 +401,27 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--train", type=str, default="train.converted")
-    parser.add_argument("--dev", type=str, default="dev.converted")
-    parser.add_argument('-m', type=str, help='model name', required=True)
-    parser.add_argument('--random_word_embedding', action='store_true')
-    parser.add_argument('--optimizer', type=str, default='adagrad')
-    parser.add_argument('--data_ratio', type=float, default=1.0)
-    parser.add_argument('--epochs', type=int, default=10)
-    parser.add_argument('--hidden_dim', type=int, default=300)
-    parser.add_argument('--n_features', type=int,
-                        default=50, choices=[50, 100, 200, 300])
-    parser.add_argument('--activation_function', type=str, default="relu")
-    parser.add_argument('--use_dropout', action='store_true', default = True)
+    parser.add_argument("--train", type=str,
+                        default="train.converted", help="path to train file")
+    parser.add_argument("--dev", type=str,
+                        default="dev.converted", help="path to dev file")
+    parser.add_argument('-m', type=str, required=True, help='model name')
+    parser.add_argument('--random_word_embedding',
+                        action='store_true', help='use random word embedding')
+    parser.add_argument('--optimizer', type=str,
+                        default='adagrad', help='optimizer to use')
+    parser.add_argument('--data_ratio', type=float,
+                        default=1.0, help='ratio of data to use')
+    parser.add_argument('--epochs', type=int, default=20,
+                        help='number of epochs')
+    parser.add_argument('--hidden_dim', type=int, default=300,
+                        help='hidden dimension of the fully connected layer')
+    parser.add_argument('--n_features', type=int, default=50, choices=[
+                        50, 100, 200, 300], help='number of features in the embedding layer')
+    parser.add_argument('--activation_function', type=str,
+                        default="relu", help='activation function to use')
+    parser.add_argument('--use_dropout', action='store_true',
+                        default=True, help='use dropout')
 
     args = parser.parse_args()
     print(args)
