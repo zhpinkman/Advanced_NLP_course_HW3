@@ -344,12 +344,16 @@ def read_sentences(file: str):
 
 
 if __name__ == "__main__":
-    mode = 'dev'
-    if os.path.exists(f'{mode}.oracle.txt'):
-        os.remove(f'{mode}.oracle.txt')
+    mode = 'train'
+    # if os.path.exists(f'{mode}.oracle.txt'):
+        # os.remove(f'{mode}.oracle.txt')
 
     sentences_tokens = read_sentences(f'{mode}.orig.conll')
     sentences = [Sentence(tokens) for tokens in sentences_tokens]
+    
+    embed()
+    exit()
+    
     print('number of sentences: ', len(sentences))
     sentences = [
         sentence for sentence in tqdm(sentences, leave=False) if sentence.is_projective()]
