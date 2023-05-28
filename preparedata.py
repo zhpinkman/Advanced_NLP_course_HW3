@@ -3,6 +3,7 @@ from typing import List, Tuple, Dict
 from collections import defaultdict
 import networkx as nx
 import matplotlib.pyplot as plt
+import argparse
 from tqdm import tqdm
 import os
 import copy
@@ -16,6 +17,34 @@ class Token:
         self.pos = pos
         self.parent = parent
         self.label = label
+        self.predicted_label = None
+        self.predicted_parent = None
+        self.left_children = []
+        self.right_children = []
+
+    def get_left_most_child(self):
+        if len(self.left_children) == 0:
+            return None
+        else:
+            return self.left_children[0]
+
+    def get_right_most_child(self):
+        if len(self.right_children) == 0:
+            return None
+        else:
+            return self.right_children[-1]
+
+    def get_second_left_most_child(self):
+        if len(self.left_children) < 2:
+            return None
+        else:
+            return self.left_children[1]
+
+    def get_second_right_most_child(self):
+        if len(self.right_children) < 2:
+            return None
+        else:
+            return self.right_children[-2]
 
     def __repr__(self):
         inst = {
@@ -23,7 +52,11 @@ class Token:
             'word': self.word,
             'pos': self.pos,
             'parent': self.parent,
-            'label': self.label
+            'label': self.label,
+            'predicted_label': self.predicted_label,
+            'predicted_parent': self.predicted_parent,
+            'left_children': self.left_children,
+            'right_children': self.right_children
         }
         return str(inst)
 
@@ -31,7 +64,6 @@ class Token:
 class Sentence:
     def __init__(self, tokens: Dict[int, Token]):
         self.tokens = tokens
-        self.__process()
 
     def get_child_parent_spans(self):
         spans = []
@@ -57,7 +89,16 @@ class Sentence:
             G.add_node(token.token_id, word=token.word, pos_tag=token.pos)
 
         for token in self.tokens.values():
-            G.add_edge(token.parent, token.token_id, label=token.label)
+            for child in token.left_children:
+                G.add_edge(token.token_id, child.token_id,
+                           label=child.predicted_label)
+            for child in token.right_children:
+                G.add_edge(token.token_id, child.token_id,
+                           label=child.predicted_label)
+
+        # for token in self.tokens.values():
+        #     if token.parent != -1:
+        #         G.add_edge(token.parent, token.token_id, label=token.label)
         return G
 
     def draw_graph(self):
@@ -74,7 +115,7 @@ class Sentence:
             G, pos, edge_labels=nx.get_edge_attributes(G, 'label'))
         plt.savefig('graph.png')
 
-    def __process(self):
+    def process(self):
         self.node_edges = defaultdict(list)
         for token in self.tokens.values():
             self.node_edges[token.parent].append(token)
@@ -88,56 +129,28 @@ class Sentence:
         return self.node_edges[index]
 
     def get_left_most_child(self, index):
-        if len(self.node_edges[index]) == 0:
-            return 'None'
-        node_to_return = self.node_edges[index][0]
-        if node_to_return.token_id > index:
-            return 'None'
-        return node_to_return
+        return self.tokens[index].get_left_most_child()
 
     def get_second_left_most_child(self, index):
-        if len(self.node_edges[index]) < 2:
-            return 'None'
-        node_to_return = self.node_edges[index][1]
-        if node_to_return.token_id > index:
-            return 'None'
-        return node_to_return
+        return self.tokens[index].get_second_left_most_child()
 
     def get_right_most_child(self, index):
-        if len(self.node_edges[index]) == 0:
-            return 'None'
-        node_to_return = self.node_edges[index][-1]
-        if node_to_return.token_id < index:
-            return 'None'
-        return node_to_return
+        return self.tokens[index].get_right_most_child()
 
     def get_second_right_most_child(self, index):
-        if len(self.node_edges[index]) < 2:
-            return 'None'
-        node_to_return = self.node_edges[index][-2]
-        if node_to_return.token_id < index:
-            return 'None'
-        return node_to_return
+        return self.tokens[index].get_second_right_most_child()
 
     def get_left_most_child_left_most_child(self, index):
-        if len(self.node_edges[index]) == 0:
-            return 'None'
-        first_child = self.node_edges[index][0]
-        if first_child.token_id > index:
-            return 'None'
-        return self.get_left_most_child(
-            first_child.token_id
-        )
+        left_most_child = self.tokens[index].get_left_most_child()
+        if left_most_child is None:
+            return None
+        return left_most_child.get_left_most_child()
 
     def get_right_most_child_right_most_child(self, index):
-        if len(self.node_edges[index]) == 0:
-            return 'None'
-        last_child = self.node_edges[index][-1]
-        if last_child.token_id < index:
-            return 'None'
-        return self.get_right_most_child(
-            last_child.token_id
-        )
+        right_most_child = self.tokens[index].get_right_most_child()
+        if right_most_child is None:
+            return None
+        return right_most_child.get_right_most_child()
 
 
 class Configuration:
@@ -147,16 +160,6 @@ class Configuration:
         self.buffer = [
             token_id for token_id in sentence.tokens.keys() if token_id != 0]
         self.all_processed = []
-
-    def get_all_features(self):
-        word_features, pos_features, label_features = self.get_features()
-        assert len(word_features) == 18
-        assert len(pos_features) == 18
-        assert len(label_features) == 12
-
-        all_features = word_features + pos_features + label_features
-
-        return all_features
 
     def get_features(self):
         words = []
@@ -188,14 +191,14 @@ class Configuration:
                     self.sentence.get_second_right_most_child
                 ]:
                     fetched_node = func(self.stack[-length])
-                    if fetched_node == 'None':
+                    if fetched_node is None:
                         words.append('None')
                         poss.append('None')
                         labels.append('None')
                     else:
                         words.append(fetched_node.word)
                         poss.append(fetched_node.pos)
-                        labels.append(fetched_node.label)
+                        labels.append(fetched_node.predicted_label)
 
             else:
                 for _ in range(4):
@@ -210,21 +213,25 @@ class Configuration:
                     self.sentence.get_right_most_child_right_most_child
                 ]:
                     fetched_node = func(self.stack[-length])
-                    if fetched_node == 'None':
+                    if fetched_node is None:
                         words.append('None')
                         poss.append('None')
                         labels.append('None')
                     else:
                         words.append(fetched_node.word)
                         poss.append(fetched_node.pos)
-                        labels.append(fetched_node.label)
+                        labels.append(fetched_node.predicted_label)
             else:
                 for _ in range(2):
                     words.append('None')
                     poss.append('None')
                     labels.append('None')
 
-        return words, poss, labels
+        assert len(words) == 18
+        assert len(poss) == 18
+        assert len(labels) == 12
+        final_results = words + poss + labels
+        return final_results
 
     def __repr__(self) -> str:
         return f"Stack: {[self.sentence[token_id].word for token_id in self.stack]}, Buffer: {[self.sentence[token_id].word for token_id in self.buffer]}"
@@ -232,7 +239,7 @@ class Configuration:
     def is_finished(self) -> bool:
         return len(self.buffer) == 0 and len(self.stack) == 1 and self.stack[0] == 0
 
-    def __shift(self):
+    def shift(self):
         past_configuration = copy.deepcopy(self)
         self.all_processed.append(self.buffer[0])
         self.stack.append(self.buffer.pop(0))
@@ -242,34 +249,56 @@ class Configuration:
             'new_configuration': self
         }
 
-    def __left_arc(self):
+    def left_arc(self, label):
         past_configuration = copy.deepcopy(self)
-        label = self.sentence[self.stack[-2]].label
+        self.sentence[self.stack[-1]
+                      ].left_children.append(self.sentence[self.stack[-2]])
+        self.sentence[self.stack[-2]].predicted_label = label
+        self.sentence[self.stack[-2]].predicted_parent = self.stack[-1]
         self.stack.pop(-2)
         return {
             'configuration': past_configuration,
-            'action': 'left_arc' + label,
+            'action': 'left_arc' + '_' + label,
             'new_configuration': self
         }
 
-    def __right_arc(self):
+    def right_arc(self, label):
         past_configuration = copy.deepcopy(self)
-        label = self.sentence[self.stack[-1]].label
+        self.sentence[self.stack[-2]
+                      ].right_children.append(self.sentence[self.stack[-1]])
+        self.sentence[self.stack[-1]].predicted_label = label
+        self.sentence[self.stack[-1]].predicted_parent = self.stack[-2]
         self.stack.pop(-1)
         return {
             'configuration': past_configuration,
-            'action': 'right_arc' + label,
+            'action': 'right_arc' + '_' + label,
             'new_configuration': self
         }
+
+    def get_possible_actions(self):
+        actions = []
+        forbidden_actions = []
+        if len(self.buffer) > 0:
+            actions.append('shift')
+        if len(self.stack) > 1:
+            if len(self.stack) != 2:
+                actions.append('left_arc')
+        if len(self.stack) > 1:
+            actions.append('right_arc')
+
+        forbidden_actions.append('left_arc_root')
+        if len(self.stack) != 1 or len(self.buffer) != 0:
+            forbidden_actions.append('right_arc_root')
+        return actions, forbidden_actions
 
     def get_next_configuration(self):
         if self.is_finished():
             return None
         if len(self.stack) == 1:
-            return self.__shift()
+            return self.shift()
 
         if self.stack[-2] in [token.token_id for token in self.sentence.get_children(self.stack[-1])]:
-            return self.__left_arc()
+            return self.left_arc(self.sentence[self.stack[-2]].label)
 
         if self.stack[-1] in [token.token_id for token in self.sentence.get_children(self.stack[-2])] and \
             all(
@@ -278,23 +307,25 @@ class Configuration:
                 for token_id in [token.token_id for token in self.sentence.get_children(self.stack[-1])]
             ]
         ):
-            return self.__right_arc()
+            return self.right_arc(self.sentence[self.stack[-1]].label)
         else:
-            return self.__shift()
+            return self.shift()
 
 
 class Oracle:
-    def __init__(self, sentences=List[Sentence]) -> None:
+    def __init__(self, sentences: List[Sentence], mode: str) -> None:
         self.sentences = sentences
-        self.all_configurations = []
-        self.all_labels = []
         print("Generating oracle...")
         count = 0
         for sentence in tqdm(self.sentences, leave=False):
             try:
-                configurations, labels = self.get_configurations(sentence)
-                self.all_configurations.append(configurations)
-                self.all_labels.append(labels)
+                sentence_configurations, sentence_labels = self.get_configurations(
+                    sentence)
+                with open(f'{mode}.converted', 'a') as f:
+                    for configuration, label in zip(sentence_configurations, sentence_labels):
+                        configuration_features = configuration.get_features()
+                        output = '\t'.join([*configuration_features, label])
+                        f.write(output + '\n')
             except Exception as e:
                 print(e)
                 print(count)
@@ -344,6 +375,7 @@ def read_sentences(file: str):
 
 
 if __name__ == "__main__":
+<<<<<<< HEAD
     mode = 'train'
     # if os.path.exists(f'{mode}.oracle.txt'):
         # os.remove(f'{mode}.oracle.txt')
@@ -354,26 +386,33 @@ if __name__ == "__main__":
     embed()
     exit()
     
+=======
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--mode', type=str, default='train',
+                        choices=['train', 'dev'])
+    args = parser.parse_args()
+
+    mode = args.mode
+
+    if os.path.exists(f'{mode}.converted'):
+        os.remove(f'{mode}.converted')
+
+    sentences_tokens = read_sentences(f'{mode}.orig.conll')
+    sentences = [Sentence(tokens) for tokens in sentences_tokens]
+    for sentence in sentences:
+        sentence.process()
+
+>>>>>>> da126526744ac2b7f63cb3f7cf0b5c5e44073ab0
     print('number of sentences: ', len(sentences))
     sentences = [
         sentence for sentence in tqdm(sentences, leave=False) if sentence.is_projective()]
     print('number of projective sentences: ', len(sentences))
 
-    parts = [(i, min(i + 5000, len(sentences)))
-             for i in range(0, len(sentences), 5000)]
-    print(parts)
-
-    for part in tqdm(parts, leave=False):
-        oracle = Oracle(
-            sentences=sentences[part[0]:part[1]]
-        )
-
-        with open(f'{mode}.oracle.txt', 'a') as f:
-            for sentence_configurations, sentence_labels in tqdm(zip(oracle.all_configurations, oracle.all_labels), leave=False):
-                for configuration, label in zip(sentence_configurations, sentence_labels):
-                    configuration_features = configuration.get_all_features()
-                    output = '\t'.join([*configuration_features, label])
-                    f.write(output + '\n')
+    oracle = Oracle(
+        sentences=sentences,
+        mode=mode
+    )
 
     embed()
     exit()

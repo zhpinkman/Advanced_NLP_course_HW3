@@ -1,5 +1,4 @@
-train.oracle.txt
-dev.oracle.txt
+train.converted
 glove.6B.100d.txt
 glove.6B.200d.txt
 glove.6B.300d.txt
@@ -7,3 +6,7 @@ glove.6B.50d.txt
 *.zip
 **/*.err
 **/*.out
+**/__pycache__
+train.oracle.txt
+models/*
+train.oracle.txt

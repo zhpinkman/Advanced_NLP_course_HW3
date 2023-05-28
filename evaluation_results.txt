@@ -1,0 +1,70 @@
+train.model
+cpu
+|| Labeled Attachment Score   || 0.832 (33321/40068) ||                                                                                               
+|| Unlabeled Attachment Score || 0.889 (35613/40068) ||
+
+
+model.n_features_100
+cpu
+|| Labeled Attachment Score   || 0.814 (32631/40068) ||                                                                                               
+|| Unlabeled Attachment Score || 0.872 (34921/40068) ||
+
+model.n_features_200
+cpu
+|| Labeled Attachment Score   || 0.802 (32148/40068) ||                                                                                               
+|| Unlabeled Attachment Score || 0.860 (34453/40068) ||
+
+model.n_features_300
+cpu
+|| Labeled Attachment Score   || 0.792 (31719/40068) ||                                                                                               
+|| Unlabeled Attachment Score || 0.850 (34059/40068) ||
+
+
+model.data_ratio_0.1
+cpu
+|| Labeled Attachment Score   || 0.766 (30698/40068) ||                                                                                               
+|| Unlabeled Attachment Score || 0.826 (33111/40068) ||
+
+model.data_ratio_0.4
+cpu
+|| Labeled Attachment Score   || 0.807 (32317/40068) ||                                                                                               
+|| Unlabeled Attachment Score || 0.863 (34593/40068) ||
+
+model.data_ratio_0.7
+cpu
+|| Labeled Attachment Score   || 0.827 (33119/40068) ||                                                                                               
+|| Unlabeled Attachment Score || 0.883 (35397/40068) ||
+
+
+
+model.hidden_dim_50
+cpu
+|| Labeled Attachment Score   || 0.817 (32721/40068) ||                                                                                               
+|| Unlabeled Attachment Score || 0.874 (35025/40068) ||
+
+model.hidden_dim_100
+cpu
+|| Labeled Attachment Score   || 0.827 (33147/40068) ||                                                                                               
+|| Unlabeled Attachment Score || 0.884 (35423/40068) ||
+
+
+model.hidden_dim_500
+cpu
+|| Labeled Attachment Score   || 0.821 (32878/40068) ||                                                                                               
+|| Unlabeled Attachment Score || 0.878 (35197/40068) ||
+
+
+model.activation_function_tanh
+cpu
+|| Labeled Attachment Score   || 0.203 (8125/40068) ||                                                                                                
+|| Unlabeled Attachment Score || 0.284 (11366/40068) ||
+
+model.optimizer_adam
+cpu
+|| Labeled Attachment Score   || 0.000 (2/40068) ||                                                                                                   
+|| Unlabeled Attachment Score || 0.001 (22/40068) ||
+
+model.without_word_embedding
+cpu
+|| Labeled Attachment Score   || 0.832 (33343/40068) ||                                                                                               
+|| Unlabeled Attachment Score || 0.888 (35588/40068) ||
